@@ -1,1 +1,453 @@
-# heyb0ss-bot.github.io
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Índice de Placa O'Leary</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #EEF3F3;
+    --panel: #FFFFFF;
+    --ink: #1B2A2E;
+    --muted: #5C7378;
+    --line: #D7E1E1;
+    --plaque: #D64545;
+    --plaque-dark: #B23636;
+    --clean: #2F9E8F;
+    --clean-dark: #24756A;
+    --excluded: #C4CDCD;
+    --excluded-line: #A9B5B5;
+    --amber: #C97A2B;
+    --radius: 10px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+    padding:32px 20px 60px;
+  }
+  .wrap{max-width:1180px;margin:0 auto;}
+
+  header{margin-bottom:28px;}
+  .eyebrow{
+    font-family:'Inter',sans-serif;
+    font-size:12px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:var(--clean-dark);
+    font-weight:600;
+    margin-bottom:6px;
+  }
+  h1{
+    font-family:'Space Grotesk',sans-serif;
+    font-size:32px;
+    font-weight:700;
+    margin:0 0 6px;
+    letter-spacing:-0.01em;
+  }
+  .sub{color:var(--muted);font-size:14.5px;max-width:640px;line-height:1.5;margin:0;}
+
+  .patient-row{
+    display:flex;gap:14px;flex-wrap:wrap;margin-top:20px;
+  }
+  .field{
+    display:flex;flex-direction:column;gap:4px;
+  }
+  .field label{font-size:11.5px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em;}
+  .field input{
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:9px 12px;
+    font-family:'Inter',sans-serif;
+    font-size:14px;
+    background:var(--panel);
+    color:var(--ink);
+    min-width:200px;
+  }
+  .field input:focus{outline:2px solid var(--clean);outline-offset:1px;}
+
+  .layout{
+    display:grid;
+    grid-template-columns: 1fr 300px;
+    gap:24px;
+    margin-top:28px;
+    align-items:start;
+  }
+  @media (max-width: 980px){
+    .layout{grid-template-columns:1fr;}
+  }
+
+  .card{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:22px;
+  }
+
+  .arch-label{
+    font-family:'Space Grotesk',sans-serif;
+    font-size:13px;
+    font-weight:600;
+    color:var(--muted);
+    text-transform:uppercase;
+    letter-spacing:.08em;
+    margin:0 0 14px;
+    display:flex;align-items:center;gap:8px;
+  }
+  .arch-label::after{content:"";flex:1;height:1px;background:var(--line);}
+
+  .arch{
+    display:grid;
+    grid-template-columns: repeat(16, minmax(0,1fr));
+    gap:6px;
+    margin-bottom:8px;
+  }
+  .quad-gap{margin-right:2px;}
+
+  .tooth{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:6px;
+    padding:6px 2px 8px;
+    border-radius:8px;
+    position:relative;
+    transition:background .15s ease;
+  }
+  .tooth.excluded{opacity:.55;}
+  .tooth-num{
+    font-family:'Space Grotesk',sans-serif;
+    font-size:12px;
+    font-weight:600;
+    color:var(--ink);
+  }
+  .tooth.excluded .tooth-num{color:var(--muted);text-decoration:line-through;}
+
+  .surf-svg{width:42px;height:42px;cursor:pointer;}
+  .tooth.excluded .surf-svg{cursor:not-allowed;}
+
+  .surf-svg path{
+    stroke:var(--line);
+    stroke-width:1.5;
+    fill:#F7FAFA;
+    transition:fill .12s ease;
+  }
+  .surf-svg path.marked{fill:var(--plaque);}
+  .surf-svg path:hover:not(.marked){fill:#DCEEEC;}
+  .tooth.excluded .surf-svg path{fill:var(--excluded)!important;stroke:var(--excluded-line);cursor:not-allowed;}
+
+  .excl-toggle{
+    font-size:10px;
+    font-weight:600;
+    color:var(--muted);
+    background:none;
+    border:1px solid var(--line);
+    border-radius:6px;
+    padding:2px 6px;
+    cursor:pointer;
+    letter-spacing:.02em;
+  }
+  .excl-toggle:hover{border-color:var(--plaque);color:var(--plaque);}
+  .tooth.excluded .excl-toggle{border-color:var(--clean);color:var(--clean-dark);}
+  .tooth.excluded .excl-toggle:hover{background:var(--clean);color:#fff;}
+
+  .legend{
+    display:flex;gap:18px;flex-wrap:wrap;
+    margin-top:18px;
+    font-size:12.5px;
+    color:var(--muted);
+  }
+  .legend span{display:inline-flex;align-items:center;gap:6px;}
+  .swatch{width:13px;height:13px;border-radius:3px;display:inline-block;border:1px solid var(--line);}
+
+  /* Sidebar */
+  .side-card{position:sticky;top:20px;}
+  .metric-label{
+    font-size:11.5px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.05em;
+    margin-bottom:2px;
+  }
+  .big-number{
+    font-family:'Space Grotesk',sans-serif;
+    font-size:56px;
+    font-weight:700;
+    line-height:1;
+    margin:4px 0 2px;
+    color:var(--plaque-dark);
+  }
+  .big-number.ok{color:var(--clean-dark);}
+  .big-number.mid{color:var(--amber);}
+
+  .interp{
+    font-size:13.5px;
+    font-weight:600;
+    margin-bottom:18px;
+    padding:8px 10px;
+    border-radius:7px;
+    background:#F7FAFA;
+    color:var(--ink);
+    border-left:3px solid var(--clean);
+  }
+  .interp.mid{border-left-color:var(--amber);}
+  .interp.bad{border-left-color:var(--plaque);}
+
+  .stats-list{list-style:none;padding:0;margin:0 0 18px;display:flex;flex-direction:column;gap:10px;}
+  .stats-list li{
+    display:flex;justify-content:space-between;
+    font-size:13.5px;
+    border-bottom:1px dashed var(--line);
+    padding-bottom:8px;
+  }
+  .stats-list li b{font-family:'Space Grotesk',sans-serif;font-weight:600;}
+
+  .actions{display:flex;flex-direction:column;gap:8px;margin-top:6px;}
+  .btn{
+    font-family:'Inter',sans-serif;
+    font-size:13.5px;
+    font-weight:600;
+    padding:10px 12px;
+    border-radius:8px;
+    border:1px solid var(--line);
+    background:var(--panel);
+    color:var(--ink);
+    cursor:pointer;
+    transition:all .12s ease;
+  }
+  .btn:hover{border-color:var(--ink);}
+  .btn.primary{background:var(--ink);color:#fff;border-color:var(--ink);}
+  .btn.primary:hover{background:#000;}
+  .btn.danger:hover{border-color:var(--plaque);color:var(--plaque);}
+
+  .scale-note{font-size:11.5px;color:var(--muted);margin-top:14px;line-height:1.5;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="eyebrow">Odontograma clínico</div>
+    <h1>Índice de Placa O'Leary</h1>
+    <p class="sub">Registra la placa presente en las 4 caras de cada diente (vestibular, palatino/lingual, mesial y distal). Excluye piezas ausentes del cálculo. El porcentaje se actualiza en tiempo real.</p>
+
+    <div class="patient-row">
+      <div class="field">
+        <label for="pname">Paciente</label>
+        <input id="pname" type="text" placeholder="Nombre del paciente">
+      </div>
+      <div class="field">
+        <label for="pdate">Fecha</label>
+        <input id="pdate" type="date">
+      </div>
+    </div>
+  </header>
+
+  <div class="layout">
+    <div class="card">
+      <div class="arch-label">Arcada superior</div>
+      <div class="arch" id="arch-upper"></div>
+
+      <div class="arch-label" style="margin-top:22px;">Arcada inferior</div>
+      <div class="arch" id="arch-lower"></div>
+
+      <div class="legend">
+        <span><span class="swatch" style="background:#F7FAFA;"></span>Sin placa</span>
+        <span><span class="swatch" style="background:var(--plaque);"></span>Con placa</span>
+        <span><span class="swatch" style="background:var(--excluded);"></span>Diente excluido</span>
+        <span>Superior: V arriba · P abajo · M/D lados</span>
+        <span>Inferior: L arriba · V abajo · M/D lados</span>
+      </div>
+    </div>
+
+    <div class="card side-card">
+      <div class="metric-label">Índice O'Leary</div>
+      <div class="big-number" id="percentage">0%</div>
+      <div class="interp" id="interp">Marca las superficies con placa para comenzar.</div>
+
+      <ul class="stats-list">
+        <li>Dientes incluidos en el cálculo <b id="stat-teeth">32 / 32</b></li>
+        <li>Superficies evaluadas (sin excluidos) <b id="stat-total">128</b></li>
+        <li>Superficies con placa <b id="stat-marked">0</b></li>
+      </ul>
+
+      <div class="actions">
+        <button class="btn" id="btn-mark-all">Marcar todas las superficies</button>
+        <button class="btn danger" id="btn-clear-all">Desmarcar todas las superficies</button>
+        <button class="btn primary" id="btn-reset">Restablecer odontograma completo</button>
+      </div>
+
+      <p class="scale-note">Referencia orientativa: ≤10% control de placa óptimo · 10–20% aceptable, mejorable · &gt;20% deficiente, requiere refuerzo de técnica de higiene oral.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const SURF = ["V","M","D","L"]; // vestibular, mesial, distal, palatino/lingual
+
+  // Quadrant tooth order as displayed left->right (viewer facing patient)
+  const upperQuads = [
+    { nums: [18,17,16,15,14,13,12,11], mesialSide: "right" },
+    { nums: [21,22,23,24,25,26,27,28], mesialSide: "left" }
+  ];
+  const lowerQuads = [
+    { nums: [48,47,46,45,44,43,42,41], mesialSide: "right" },
+    { nums: [31,32,33,34,35,36,37,38], mesialSide: "left" }
+  ];
+
+  const state = {}; // state[toothNum] = {excluded:false, V:false,M:false,D:false,L:false}
+  [...upperQuads, ...lowerQuads].flatMap(q=>q.nums).forEach(n=>{
+    state[n] = {excluded:false, V:false, M:false, D:false, L:false};
+  });
+
+  function toothSVG(num, mesialSide, arch){
+    // Upper arch: top triangle = V (vestibular), bottom triangle = L (palatino)
+    // Lower arch: top triangle = L (lingual), bottom triangle = V (vestibular)
+    const topLabel = arch === "upper" ? "V" : "L";
+    const bottomLabel = arch === "upper" ? "L" : "V";
+    const leftLabel = mesialSide === "left" ? "M" : "D";
+    const rightLabel = mesialSide === "left" ? "D" : "M";
+    return `
+      <svg class="surf-svg" viewBox="0 0 40 40" data-tooth="${num}">
+        <path data-surface="${topLabel}" d="M0,0 L40,0 L20,20 Z"></path>
+        <path data-surface="${rightLabel}" d="M40,0 L40,40 L20,20 Z"></path>
+        <path data-surface="${bottomLabel}" d="M40,40 L0,40 L20,20 Z"></path>
+        <path data-surface="${leftLabel}" d="M0,40 L0,0 L20,20 Z"></path>
+      </svg>
+    `;
+  }
+
+  function renderArch(containerId, quads, arch){
+    const el = document.getElementById(containerId);
+    el.innerHTML = "";
+    quads.forEach((quad, qi)=>{
+      quad.nums.forEach((num, i)=>{
+        const div = document.createElement("div");
+        div.className = "tooth";
+        div.id = "tooth-" + num;
+        if (qi === 0 && i === quad.nums.length -1) div.classList.add("quad-gap");
+        div.innerHTML = `
+          <span class="tooth-num">${String(num).slice(0,1)}.${String(num).slice(1)}</span>
+          ${toothSVG(num, quad.mesialSide, arch)}
+          <button class="excl-toggle" data-tooth="${num}">Excluir</button>
+        `;
+        el.appendChild(div);
+      });
+    });
+  }
+
+  renderArch("arch-upper", upperQuads, "upper");
+  renderArch("arch-lower", lowerQuads, "lower");
+
+  function updateToothVisual(num){
+    const t = state[num];
+    const toothEl = document.getElementById("tooth-"+num);
+    toothEl.classList.toggle("excluded", t.excluded);
+    toothEl.querySelector(".excl-toggle").textContent = t.excluded ? "Incluir" : "Excluir";
+    toothEl.querySelectorAll("path").forEach(p=>{
+      const s = p.getAttribute("data-surface");
+      p.classList.toggle("marked", !!t[s] && !t.excluded);
+    });
+  }
+
+  function recalc(){
+    let totalSurfaces = 0, markedSurfaces = 0, teethIncluded = 0;
+    const allNums = Object.keys(state);
+    allNums.forEach(num=>{
+      const t = state[num];
+      if (t.excluded) return;
+      teethIncluded++;
+      SURF.forEach(s=>{
+        totalSurfaces++;
+        if (t[s]) markedSurfaces++;
+      });
+    });
+    const pct = totalSurfaces === 0 ? 0 : (markedSurfaces/totalSurfaces*100);
+
+    document.getElementById("stat-teeth").textContent = `${teethIncluded} / 32`;
+    document.getElementById("stat-total").textContent = totalSurfaces;
+    document.getElementById("stat-marked").textContent = markedSurfaces;
+
+    const pctEl = document.getElementById("percentage");
+    pctEl.textContent = (Math.round(pct*10)/10) + "%";
+
+    const interpEl = document.getElementById("interp");
+    pctEl.classList.remove("ok","mid");
+    interpEl.classList.remove("mid","bad");
+
+    if (totalSurfaces === 0){
+      interpEl.textContent = "No hay dientes incluidos en el cálculo.";
+    } else if (pct <= 10){
+      pctEl.classList.add("ok");
+      interpEl.textContent = "Control de placa óptimo.";
+    } else if (pct <= 20){
+      pctEl.classList.add("mid");
+      interpEl.classList.add("mid");
+      interpEl.textContent = "Aceptable, pero mejorable.";
+    } else {
+      interpEl.classList.add("mid");
+      interpEl.style.color = "";
+      interpEl.classList.remove("mid");
+      interpEl.classList.add("bad");
+      interpEl.textContent = "Higiene deficiente: requiere refuerzo de técnica.";
+    }
+  }
+
+  // Event delegation for surface clicks
+  document.querySelectorAll(".arch").forEach(arch=>{
+    arch.addEventListener("click", (e)=>{
+      const path = e.target.closest("path[data-surface]");
+      if (path){
+        const num = path.closest(".surf-svg").getAttribute("data-tooth");
+        if (state[num].excluded) return;
+        const s = path.getAttribute("data-surface");
+        state[num][s] = !state[num][s];
+        updateToothVisual(num);
+        recalc();
+        return;
+      }
+      const btn = e.target.closest(".excl-toggle");
+      if (btn){
+        const num = btn.getAttribute("data-tooth");
+        state[num].excluded = !state[num].excluded;
+        updateToothVisual(num);
+        recalc();
+      }
+    });
+  });
+
+  document.getElementById("btn-mark-all").addEventListener("click", ()=>{
+    Object.keys(state).forEach(num=>{
+      if (state[num].excluded) return;
+      SURF.forEach(s=> state[num][s] = true);
+      updateToothVisual(num);
+    });
+    recalc();
+  });
+
+  document.getElementById("btn-clear-all").addEventListener("click", ()=>{
+    Object.keys(state).forEach(num=>{
+      SURF.forEach(s=> state[num][s] = false);
+      updateToothVisual(num);
+    });
+    recalc();
+  });
+
+  document.getElementById("btn-reset").addEventListener("click", ()=>{
+    Object.keys(state).forEach(num=>{
+      state[num].excluded = false;
+      SURF.forEach(s=> state[num][s] = false);
+      updateToothVisual(num);
+    });
+    recalc();
+  });
+
+  // initial paint
+  Object.keys(state).forEach(updateToothVisual);
+  recalc();
+})();
+</script>
+</body>
+</html>
