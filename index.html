@@ -30,6 +30,11 @@
     font-family:'Inter',sans-serif;
     padding:32px 20px 60px;
   }
+  @media (max-width: 760px){
+    body{padding:20px 10px 40px;}
+    .card{padding:14px;}
+    h1{font-size:26px;}
+  }
   .wrap{max-width:1180px;margin:0 auto;}
 
   header{margin-bottom:28px;}
@@ -100,13 +105,32 @@
   }
   .arch-label::after{content:"";flex:1;height:1px;background:var(--line);}
 
+  .arch-scroll{
+    overflow-x:auto;
+    overflow-y:hidden;
+    -webkit-overflow-scrolling:touch;
+    margin-bottom:8px;
+    padding-bottom:4px;
+  }
   .arch{
     display:grid;
-    grid-template-columns: repeat(16, minmax(0,1fr));
+    grid-template-columns: repeat(16, minmax(52px, 1fr));
     gap:6px;
-    margin-bottom:8px;
+    width:max-content;
+    min-width:100%;
   }
   .quad-gap{margin-right:2px;}
+
+  .scroll-hint{
+    display:none;
+    font-size:11.5px;
+    color:var(--muted);
+    margin:-4px 0 10px;
+    text-align:center;
+  }
+  @media (max-width: 760px){
+    .scroll-hint{display:block;}
+  }
 
   .tooth{
     display:flex;
@@ -127,8 +151,14 @@
   }
   .tooth.excluded .tooth-num{color:var(--muted);text-decoration:line-through;}
 
-  .surf-svg{width:42px;height:42px;cursor:pointer;}
+  .surf-svg{width:42px;height:42px;cursor:pointer;touch-action:manipulation;}
   .tooth.excluded .surf-svg{cursor:not-allowed;}
+
+  @media (max-width: 760px){
+    .surf-svg{width:46px;height:46px;}
+    .tooth{padding:6px 3px 10px;}
+    .excl-toggle{padding:4px 7px;font-size:10.5px;}
+  }
 
   .surf-svg path{
     stroke:var(--line);
@@ -247,10 +277,12 @@
   <div class="layout">
     <div class="card">
       <div class="arch-label">Arcada superior</div>
-      <div class="arch" id="arch-upper"></div>
+      <div class="arch-scroll"><div class="arch" id="arch-upper"></div></div>
+      <div class="scroll-hint">↔ Desliza para ver todos los dientes</div>
 
       <div class="arch-label" style="margin-top:22px;">Arcada inferior</div>
-      <div class="arch" id="arch-lower"></div>
+      <div class="arch-scroll"><div class="arch" id="arch-lower"></div></div>
+      <div class="scroll-hint">↔ Desliza para ver todos los dientes</div>
 
       <div class="legend">
         <span><span class="swatch" style="background:#F7FAFA;"></span>Sin placa</span>
