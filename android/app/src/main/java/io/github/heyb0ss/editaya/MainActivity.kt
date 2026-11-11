@@ -7,6 +7,7 @@ import android.content.pm.ApplicationInfo
 import android.net.Uri
 import android.os.Bundle
 import android.view.ViewGroup
+import android.widget.FrameLayout
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
@@ -59,15 +60,21 @@ class MainActivity : ComponentActivity() {
             .build()
 
         webView = WebView(this).apply {
-            layoutParams = ViewGroup.LayoutParams(
+            layoutParams = FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT
             )
             setBackgroundColor(0xFF0B0C10.toInt())
         }
-        setContentView(webView)
+        // El WebView ignora su propio padding al dibujar, así que se coloca dentro de un
+        // contenedor que sí aplica el espacio de la barra de estado y de navegación.
+        val root = FrameLayout(this).apply {
+            setBackgroundColor(0xFF0B0C10.toInt())
+            addView(webView)
+        }
+        setContentView(root)
 
         // Respetar barras del sistema (edge-to-edge en Android 15+).
-        ViewCompat.setOnApplyWindowInsetsListener(webView) { v, insets ->
+        ViewCompat.setOnApplyWindowInsetsListener(root) { v, insets ->
             val bars = insets.getInsets(
                 WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
             )

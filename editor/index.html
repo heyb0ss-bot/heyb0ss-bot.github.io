@@ -36,7 +36,7 @@
   <div class="transport">
     <span class="time"><b id="time">00:00.0</b> / <span id="dur">00:00.0</span></span>
     <button id="btn-play" class="play" aria-label="Reproducir"></button>
-    <span class="zoom-hint">Pellizca para zoom</span>
+    <div class="zoom"><button id="zoom-out" class="icon-btn" aria-label="Alejar línea de tiempo" title="Alejar"></button><button id="zoom-in" class="icon-btn" aria-label="Acercar línea de tiempo" title="Acercar"></button></div>
   </div>
 
   <section class="timeline-wrap">
@@ -51,6 +51,7 @@
     <div class="playhead"></div>
   </section>
 
+  <div id="sel-info" class="sel-info hidden"></div>
   <nav id="toolbar" class="toolbar"></nav>
 </div>
 

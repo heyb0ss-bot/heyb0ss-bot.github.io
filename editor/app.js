@@ -58,6 +58,8 @@
     flip: '<path d="M12 3v18M8 7l-5 5 5 5zM16 7l5 5-5 5z"/>',
     reset: '<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/>',
     film: '<path d="M7 4.5v15l12.5-7.5z"/>',
+    zoomIn: '<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3M8 11h6M11 8v6"/>',
+    zoomOut: '<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3M8 11h6"/>',
   };
   const ic = (n) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICONS[n] || ''}</svg>`;
 
@@ -220,9 +222,45 @@
 
   // ---------- UI general ----------
   let toastTimer = 0;
-  function toast(msg, ms = 2200) {
-    const el = $('#toast'); el.textContent = msg; el.classList.add('show');
-    clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('show'), ms);
+  function toast(msg, ms = 2200, action) {
+    const el = $('#toast');
+    el.innerHTML = `<span>${esc(msg)}</span>` + (action ? `<button class="toast-act">${esc(action.label)}</button>` : '');
+    if (action) $('.toast-act', el).onclick = () => { el.classList.remove('show'); action.fn(); };
+    el.classList.add('show');
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('show'), action ? Math.max(ms, 4000) : ms);
+  }
+  const vibrate = (ms = 20) => { try { if (navigator.vibrate) navigator.vibrate(ms); } catch (e) { /* */ } };
+
+  // Menú emergente / diálogo propio (no depende de confirm() del navegador)
+  function closeMenu() { const m = $('#menu'); if (m) m.parentNode.removeChild(m); }
+  function showMenu({ title, text, items, anchor }) {
+    closeMenu();
+    const wrap = document.createElement('div');
+    wrap.id = 'menu'; wrap.className = 'menu-wrap' + (anchor ? '' : ' center');
+    wrap.innerHTML = `<div class="menu" role="dialog" aria-modal="true">` +
+      (title ? `<div class="menu-title">${esc(title)}</div>` : '') + (text ? `<div class="menu-text">${esc(text)}</div>` : '') +
+      items.map((it, i) => `<button class="menu-item${it.danger ? ' danger' : ''}${it.muted ? ' muted' : ''}" data-i="${i}">${it.icon ? ic(it.icon) : ''}<span>${esc(it.label)}</span></button>`).join('') +
+      `</div>`;
+    document.body.appendChild(wrap);
+    const menu = $('.menu', wrap);
+    if (anchor) {
+      const mw = menu.offsetWidth, mh = menu.offsetHeight;
+      const x = clamp(anchor.left + anchor.width / 2 - mw / 2, 12, innerWidth - mw - 12);
+      let y = anchor.top - mh - 10;
+      if (y < 12) y = Math.min(innerHeight - mh - 12, anchor.bottom + 10);
+      menu.style.left = x + 'px'; menu.style.top = y + 'px';
+    }
+    wrap.addEventListener('click', (e) => {
+      const b = e.target.closest('.menu-item');
+      if (b) { closeMenu(); const it = items[+b.dataset.i]; if (it.fn) it.fn(); return; }
+      if (!e.target.closest('.menu')) { closeMenu(); const c = items.find((x) => x.muted); if (c && c.fn) c.fn(); }
+    });
+  }
+  function confirmDlg(title, text, okLabel, danger) {
+    return new Promise((res) => showMenu({ title, text, items: [
+      { label: okLabel, danger, icon: danger ? 'trash' : 'check', fn: () => res(true) },
+      { label: 'Cancelar', muted: true, fn: () => res(false) },
+    ] }));
   }
   function busy(msg) { $('#busy-msg').textContent = msg || ''; $('#busy').classList.toggle('hidden', msg == null); }
 
@@ -434,6 +472,9 @@
     if (added) {
       if (wasEmpty && firstMedia && firstMedia.w) S.ratio = closestRatio(firstMedia.w, firstMedia.h);
       commit(); seekPreview();
+      let seen = false;
+      try { seen = !!localStorage.getItem('editaya.tip1'); localStorage.setItem('editaya.tip1', '1'); } catch (e) { /* */ }
+      if (!seen) setTimeout(() => toast('Consejo: toca un clip para editarlo. Mantenlo presionado 2 s para eliminarlo.', 6000), 400);
     }
   }
 
@@ -782,6 +823,10 @@
     }
   }, { passive: false });
   tl.addEventListener('touchend', (e) => { if (e.touches.length < 2) pinchTl = null; });
+  function zoomTl(f) { pps = clamp(pps * f, 6, 600); renderTimeline(); }
+  $('#zoom-in').innerHTML = ic('zoomIn'); $('#zoom-out').innerHTML = ic('zoomOut');
+  $('#zoom-in').addEventListener('click', () => zoomTl(1.5));
+  $('#zoom-out').addEventListener('click', () => zoomTl(1 / 1.5));
   tl.addEventListener('wheel', (e) => {
     if (!e.ctrlKey) return;
     e.preventDefault(); pps = clamp(pps * (e.deltaY < 0 ? 1.12 : 0.89), 6, 600); renderTimeline();
@@ -799,6 +844,51 @@
     if (it) { if (!(sel && sel.id === it.dataset.id)) select(it.dataset.kind, it.dataset.id); return; }
     if (sel) select(null);
   });
+
+  // pulsación larga (2 s) sobre un elemento: menú para eliminarlo
+  const LONG_MS = 2000;
+  let lp = null;
+  function clearLP() {
+    if (!lp) return;
+    clearTimeout(lp.timer);
+    $$('.pressing', inner).forEach((x) => x.classList.remove('pressing'));
+    lp = null;
+  }
+  function itemTitle(kind, it) {
+    if (kind === 'clip') return `${it.kind === 'image' ? 'Foto' : 'Clip'} ${S.clips.indexOf(it) + 1} · ${fmt(clipLen(it))}`;
+    if (kind === 'text') return it.sticker ? `Sticker ${it.text}` : `Texto «${(it.text || '').replace(/\n/g, ' ').slice(0, 22)}»`;
+    return `Audio «${it.name.slice(0, 22)}»`;
+  }
+  function longPress(kind, id) {
+    const it = findItem(kind, id); if (!it) return;
+    dragEndedAt = performance.now(); drag = null; trimPreview = null;
+    if (playing) pause();
+    vibrate(35);
+    select(kind, id);
+    const el = $(`[data-kind="${kind}"][data-id="${id}"]`, inner);
+    showMenu({
+      title: itemTitle(kind, it),
+      anchor: el ? el.getBoundingClientRect() : null,
+      items: [
+        { label: 'Eliminar', icon: 'trash', danger: true, fn: () => { if (findItem(kind, id)) { sel = { type: kind, id }; delSel(); } } },
+        { label: 'Duplicar', icon: 'copy', fn: () => { if (findItem(kind, id)) { sel = { type: kind, id }; dupSel(); } } },
+        { label: 'Cancelar', muted: true },
+      ],
+    });
+  }
+  inner.addEventListener('pointerdown', (e) => {
+    clearLP();
+    const it = e.target.closest('[data-kind]');
+    if (!it || e.target.closest('.h, button')) return;
+    const kind = it.dataset.kind, id = it.dataset.id;
+    it.classList.add('pressing');
+    lp = { x: e.clientX, y: e.clientY, pid: e.pointerId, sl: tl.scrollLeft, timer: setTimeout(() => { clearLP(); longPress(kind, id); }, LONG_MS) };
+  });
+  window.addEventListener('pointermove', (e) => { if (lp && e.pointerId === lp.pid && Math.hypot(e.clientX - lp.x, e.clientY - lp.y) > 10) clearLP(); });
+  window.addEventListener('pointerup', clearLP);
+  window.addEventListener('pointercancel', clearLP);
+  tl.addEventListener('scroll', () => { if (lp && Math.abs(tl.scrollLeft - lp.sl) > 10) clearLP(); }, { passive: true });
+  inner.addEventListener('contextmenu', (e) => e.preventDefault());
 
   // arrastre: recortar (manijas) y mover textos/audio
   let drag = null;
@@ -919,9 +1009,9 @@
 
   // ---------- barra de herramientas ----------
   const TOOLS = {
-    main: [['edit', 'edit', 'Editar'], ['add', 'media', 'Agregar'], ['audio', 'music', 'Audio'], ['text', 'text', 'Texto'], ['sticker', 'smile', 'Stickers'], ['ratio', 'ratio', 'Formato'], ['bg', 'image', 'Fondo']],
-    clip: [['split', 'scissors', 'Dividir'], ['speed', 'speed', 'Velocidad'], ['volume', 'volume', 'Volumen'], ['filter', 'filter', 'Filtros'], ['adjust', 'sliders', 'Ajustes'], ['transform', 'crop', 'Encuadre'], ['transition', 'transition', 'Transición'], ['dup', 'copy', 'Duplicar'], ['moveL', 'left', 'Mover ←'], ['moveR', 'right', 'Mover →'], ['del', 'trash', 'Eliminar']],
-    image: [['split', 'scissors', 'Dividir'], ['duration', 'speed', 'Duración'], ['filter', 'filter', 'Filtros'], ['adjust', 'sliders', 'Ajustes'], ['transform', 'crop', 'Encuadre'], ['transition', 'transition', 'Transición'], ['dup', 'copy', 'Duplicar'], ['moveL', 'left', 'Mover ←'], ['moveR', 'right', 'Mover →'], ['del', 'trash', 'Eliminar']],
+    main: [['edit', 'edit', 'Editar clip'], ['add', 'media', 'Agregar'], ['audio', 'music', 'Audio'], ['text', 'text', 'Texto'], ['sticker', 'smile', 'Stickers'], ['ratio', 'ratio', 'Formato'], ['bg', 'image', 'Fondo']],
+    clip: [['split', 'scissors', 'Dividir'], ['speed', 'speed', 'Velocidad'], ['volume', 'volume', 'Volumen'], ['filter', 'filter', 'Filtros'], ['adjust', 'sliders', 'Ajustes'], ['transform', 'crop', 'Encuadre'], ['transition', 'transition', 'Transición'], ['dup', 'copy', 'Duplicar'], ['moveL', 'left', 'A la izq.'], ['moveR', 'right', 'A la der.'], ['del', 'trash', 'Eliminar']],
+    image: [['split', 'scissors', 'Dividir'], ['duration', 'speed', 'Duración'], ['filter', 'filter', 'Filtros'], ['adjust', 'sliders', 'Ajustes'], ['transform', 'crop', 'Encuadre'], ['transition', 'transition', 'Transición'], ['dup', 'copy', 'Duplicar'], ['moveL', 'left', 'A la izq.'], ['moveR', 'right', 'A la der.'], ['del', 'trash', 'Eliminar']],
     text: [['editText', 'edit', 'Editar'], ['split', 'scissors', 'Dividir'], ['dup', 'copy', 'Duplicar'], ['del', 'trash', 'Eliminar']],
     audio: [['volume', 'volume', 'Volumen'], ['split', 'scissors', 'Dividir'], ['dup', 'copy', 'Duplicar'], ['del', 'trash', 'Eliminar']],
   };
@@ -930,10 +1020,16 @@
     let set = TOOLS.main, h = '';
     if (it) {
       set = sel.type === 'clip' ? (it.kind === 'image' ? TOOLS.image : TOOLS.clip) : TOOLS[sel.type];
-      h += `<button class="tool back" data-act="back">${ic('back')}<span>Volver</span></button>`;
+      h += `<button class="tool back" data-act="back">${ic('check')}<span>Listo</span></button>`;
     }
     h += set.map(([a, i, l]) => `<button class="tool${a === 'del' ? ' danger' : ''}" data-act="${a}">${ic(i)}<span>${l}</span></button>`).join('');
     toolbar.innerHTML = h; toolbar.scrollLeft = 0;
+    const info = $('#sel-info');
+    if (it) {
+      const tip = sel.type === 'clip' ? 'Arrastra los bordes blancos para recortar' : 'Arrastra para mover · bordes para alargar';
+      info.innerHTML = `<b>${esc(itemTitle(sel.type, it))}</b><span>${tip}</span>`;
+      info.classList.remove('hidden');
+    } else info.classList.add('hidden');
   }
   toolbar.addEventListener('click', (e) => { const b = e.target.closest('[data-act]'); if (b) act(b.dataset.act); });
 
@@ -996,7 +1092,7 @@
       const b = { ...clone(it), id: uid(), start: t, in: it.in + local };
       it.out = it.in + local; S.audios.push(b); sel = { type: 'audio', id: b.id };
     }
-    commit(); toast('Dividido');
+    commit(); vibrate(15); toast('Dividido en dos partes');
   }
   function dupSel() {
     const it = selItem(); if (!it) return;
@@ -1009,7 +1105,7 @@
   function moveSel(dir) {
     const it = selItem(); if (!it || sel.type !== 'clip') return;
     const i = S.clips.indexOf(it), j = i + dir;
-    if (j < 0 || j >= S.clips.length) return;
+    if (j < 0 || j >= S.clips.length) { toast(dir < 0 ? 'Ya es el primer clip' : 'Ya es el último clip'); return; }
     [S.clips[i], S.clips[j]] = [S.clips[j], S.clips[i]];
     commit();
     const o = layout().find((x) => x.clip.id === it.id); setTime(o.start + 0.01);
@@ -1019,13 +1115,15 @@
     const arr = sel.type === 'clip' ? S.clips : sel.type === 'text' ? S.texts : S.audios;
     arr.splice(arr.indexOf(it), 1);
     if (sel.type === 'clip' && S.clips[0]) S.clips[0].trans = 'none';
-    sel = null; commit(); seekPreview();
+    const what = sel.type === 'clip' ? 'Clip eliminado' : sel.type === 'text' ? (it.sticker ? 'Sticker eliminado' : 'Texto eliminado') : 'Audio eliminado';
+    sel = null; commit(); seekPreview(); vibrate(25);
+    toast(what, 4000, { label: 'Deshacer', fn: () => histMove(-1) });
   }
   function addText(sticker) {
     const total = totalDur();
     const start = total > 0 && t >= total - 0.2 ? Math.max(0, total - 3) : t;
     const x = {
-      id: uid(), text: sticker || 'Tu texto', start, dur: 3, x: 0.5, y: sticker ? 0.35 : 0.5, size: sticker ? 150 : 64,
+      id: uid(), text: sticker || 'Escribe tu texto', start, dur: 3, x: 0.5, y: sticker ? 0.35 : 0.5, size: sticker ? 150 : 64,
       color: '#ffffff', bg: '#000000', style: sticker ? 'plain' : 'outline', font: 'sans', anim: 'pop', sticker: !!sticker,
     };
     S.texts.push(x); sel = { type: 'text', id: x.id };
@@ -1383,18 +1481,20 @@
   $('#btn-start').addEventListener('click', () => fileMedia.click());
   $('#btn-new').addEventListener('click', () => {
     const empty = !S.clips.length && !S.texts.length && !S.audios.length;
-    if (empty || confirm('¿Empezar un proyecto nuevo? Se borrará el proyecto actual.')) resetProject();
+    if (empty) { resetProject(); return; }
+    confirmDlg('¿Empezar un proyecto nuevo?', 'Se borrará el proyecto actual y no se podrá recuperar.', 'Borrar y empezar', true)
+      .then((ok) => { if (ok) resetProject(); });
   });
   fileMedia.addEventListener('change', () => { const f = [...fileMedia.files]; fileMedia.value = ''; importFiles(f, 'main'); });
   fileAudio.addEventListener('change', () => { const f = [...fileAudio.files]; fileAudio.value = ''; importFiles(f, 'audio'); });
 
   document.addEventListener('keydown', (e) => {
-    if (e.target.matches('textarea,input')) return;
+    if (e.target.matches('textarea,input') || $('#menu')) { if (e.key === 'Escape') closeMenu(); return; }
     if (e.code === 'Space') { e.preventDefault(); playing ? pause() : play(); }
     else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); histMove(e.shiftKey ? 1 : -1); }
     else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') { e.preventDefault(); histMove(1); }
     else if (e.key === 'Delete' || e.key === 'Backspace') { if (sel) delSel(); }
-    else if (e.key === 'Escape') { if (!closeSheet()) select(null); }
+    else if (e.key === 'Escape') { if ($('#menu')) closeMenu(); else if (!closeSheet()) select(null); }
     else if (e.key === 'ArrowLeft') setTime(t - 1 / 30);
     else if (e.key === 'ArrowRight') setTime(t + 1 / 30);
   });
@@ -1404,6 +1504,7 @@
   // Botón "atrás" de Android (lo llama la app nativa)
   window.__onAndroidBack = () => {
     if (exporting) return true;
+    if ($('#menu')) { closeMenu(); return true; }
     if (closeSheet()) return true;
     if (sel) { select(null); return true; }
     return false;
