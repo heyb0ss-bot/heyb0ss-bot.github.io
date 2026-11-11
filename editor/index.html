@@ -35,7 +35,7 @@
 
   <div class="transport">
     <span class="time"><b id="time">00:00.0</b> / <span id="dur">00:00.0</span></span>
-    <button id="btn-play" class="play" aria-label="Reproducir"></button>
+    <div class="tp-mid"><button id="btn-prev" class="icon-btn" aria-label="Cuadro anterior" title="Cuadro anterior"></button><button id="btn-play" class="play" aria-label="Reproducir"></button><button id="btn-next" class="icon-btn" aria-label="Cuadro siguiente" title="Cuadro siguiente"></button></div>
     <div class="zoom"><button id="zoom-out" class="icon-btn" aria-label="Alejar línea de tiempo" title="Alejar"></button><button id="zoom-in" class="icon-btn" aria-label="Acercar línea de tiempo" title="Acercar"></button></div>
   </div>
 
@@ -43,9 +43,7 @@
     <div id="timeline">
       <div id="tl-inner">
         <div id="ruler" class="ruler"></div>
-        <div id="track-video" class="track"></div>
-        <div id="track-text" class="track lanes"></div>
-        <div id="track-audio" class="track lanes"></div>
+        <div id="rows"></div>
       </div>
     </div>
     <div class="playhead"></div>

@@ -76,33 +76,61 @@ svg { display: block; }
 
 /* Timeline */
 .timeline-wrap { position: relative; flex: none; background: var(--panel); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
-#timeline { overflow-x: auto; overflow-y: hidden; scrollbar-width: none; touch-action: pan-x; max-height: 40vh; }
+#timeline { overflow: auto; scrollbar-width: none; touch-action: pan-x pan-y; max-height: 44vh; overscroll-behavior: contain; }
 #timeline::-webkit-scrollbar { display: none; }
-#tl-inner { position: relative; padding-bottom: 6px; }
+#tl-inner { position: relative; padding-bottom: 8px; }
 .ruler { height: 22px; position: relative; font-size: 10px; color: var(--muted); font-variant-numeric: tabular-nums; }
-.tick { position: absolute; top: 0; height: 22px; border-left: 1px solid #ffffff26; padding: 4px 0 0 4px; white-space: nowrap; }
-.dot { position: absolute; top: 11px; width: 3px; height: 3px; margin-left: -1px; background: #ffffff38; border-radius: 2px; }
-.track { position: relative; margin-top: 6px; }
-#track-video { height: 56px; margin-top: 14px; }
+.tick { position: absolute; top: 0; height: 22px; border-left: 1px solid #ffffff40; padding: 3px 0 0 4px; white-space: nowrap; }
+.mtick { position: absolute; bottom: 0; height: 6px; border-left: 1px solid #ffffff24; }
+#rows { position: relative; }
+
+/* Filas de pistas con etiqueta fija a la izquierda */
+.row { position: relative; margin-top: 6px; }
+.row.main { height: 56px; margin-top: 16px; }
+.ghost-row { height: 26px; }
+.row-label {
+  position: sticky; left: 0; z-index: 9; width: 34px; height: 100%; display: flex; align-items: center; justify-content: center; gap: 1px;
+  color: var(--muted); background: linear-gradient(90deg, var(--panel) 60%, transparent); pointer-events: none;
+}
+.row-label svg { width: 15px; height: 15px; }
+.row-label i { font-style: normal; font-size: 9px; font-weight: 700; }
+
 .clip {
   position: absolute; top: 0; height: 56px; border-radius: 6px; overflow: hidden;
-  background: var(--clip); display: flex; touch-action: pan-x;
+  background: var(--clip); display: flex; touch-action: pan-x pan-y;
 }
+.clip.ov { top: 2px; height: 42px; background: #2d2346; box-shadow: inset 0 0 0 1px #a259ff99; }
 .clip .tile { flex: none; width: 44px; height: 100%; background-size: cover; background-position: center; border-right: 1px solid #0003; }
-.clip .meta { position: absolute; left: 5px; bottom: 4px; font-size: 10px; background: #000a; padding: 1px 5px; border-radius: 4px; pointer-events: none; }
-.clip .badge { position: absolute; right: 5px; top: 4px; font-size: 10px; background: #000a; padding: 1px 5px; border-radius: 4px; pointer-events: none; }
-.sel { box-shadow: inset 0 0 0 2px #fff; z-index: 3; }
-.h { position: absolute; top: 0; bottom: 0; width: 22px; background: #fff; display: grid; place-items: center; touch-action: none; z-index: 4; }
+.clip .meta { position: absolute; left: 6px; bottom: 4px; font-size: 10px; background: #000a; padding: 1px 5px; border-radius: 4px; pointer-events: none; z-index: 4; }
+.clip .badge { position: absolute; right: 6px; top: 4px; font-size: 10px; background: #000a; padding: 1px 5px; border-radius: 4px; pointer-events: none; z-index: 4; }
+.clip.sel .meta { left: 28px; }
+.clip.sel .badge { right: 28px; }
+.sel, .dragging { z-index: 5; }
+
+
+/* Zona que se conserva (marco blanco), zona que se quitará (sombreada) y zona añadida */
+.keep { position: absolute; top: 0; bottom: 0; box-shadow: inset 0 0 0 2px #fff; border-radius: 6px; pointer-events: none; z-index: 3; }
+.shade {
+  position: absolute; top: 0; bottom: 0; z-index: 2; pointer-events: none;
+  background: repeating-linear-gradient(135deg, rgba(255, 61, 127, .38) 0 6px, transparent 6px 12px), rgba(0, 0, 0, .62);
+}
+.ext {
+  position: absolute; top: 0; bottom: 0; z-index: 2; pointer-events: none; outline: 1px dashed #22d3ee; outline-offset: -1px;
+  background: repeating-linear-gradient(135deg, rgba(34, 211, 238, .30) 0 6px, rgba(34, 211, 238, .10) 6px 12px);
+}
+.snap-line { position: absolute; top: -4px; bottom: 0; width: 0; border-left: 2px dashed #ffcc00; z-index: 11; pointer-events: none; }
+
+.h { position: absolute; top: 0; bottom: 0; width: 22px; background: #fff; display: grid; place-items: center; touch-action: none; z-index: 6; }
 .h::after { content: ""; width: 3px; height: 18px; background: #000; border-radius: 2px; }
-.h.l { left: 0; border-radius: 6px 0 0 6px; }
-.h.r { right: 0; border-radius: 0 6px 6px 0; }
+.h.l { border-radius: 6px 0 0 6px; }
+.h.r { border-radius: 0 6px 6px 0; }
 .tr-btn {
   /* Encima del borde superior del clip: visible pero sin tapar las manijas de recorte */
   position: absolute; top: -13px; width: 22px; height: 18px; margin-left: -11px; border-radius: 6px;
-  background: #fff; color: #000; z-index: 2; border: 0; display: grid; place-items: center; padding: 0;
+  background: #fff; color: #000; z-index: 4; border: 0; display: grid; place-items: center; padding: 0;
   box-shadow: 0 1px 4px #0008;
 }
-.tr-btn::after { content: ""; position: absolute; inset: -8px -6px -2px; } /* área táctil más grande hacia arriba */
+.tr-btn::after { content: ""; position: absolute; inset: -8px -6px -2px; }
 .tr-btn svg { width: 13px; height: 13px; }
 .tr-btn.on { background: var(--accent); }
 .add-clip {
@@ -110,21 +138,25 @@ svg { display: block; }
   display: grid; place-items: center;
 }
 .add-clip svg { width: 22px; height: 22px; }
-.lanes { min-height: 26px; }
 .item {
-  position: absolute; height: 24px; border-radius: 5px; font-size: 11px; padding: 0 8px; display: flex; align-items: center;
-  white-space: nowrap; overflow: hidden; touch-action: pan-x; background-repeat: no-repeat;
+  position: absolute; height: 24px; border-radius: 5px; font-size: 11px; display: flex; align-items: center;
+  white-space: nowrap; overflow: hidden; touch-action: pan-x pan-y;
 }
-.item.text { background-color: #f5a52430; border: 1px solid #f5a52490; color: #ffd58a; }
-.item.audio { background-color: #22c55e22; border: 1px solid #22c55e90; color: #a7f3c4; }
-.item.sel { touch-action: none; box-shadow: inset 0 0 0 2px #fff; color: #fff; }
+.item.text { background-color: #f5a52430; box-shadow: inset 0 0 0 1px #f5a52490; color: #ffd58a; }
+.item.audio { background-color: #22c55e22; box-shadow: inset 0 0 0 1px #22c55e90; color: #a7f3c4; }
+.item.sel { touch-action: none; color: #fff; }
+.item .keep { border-radius: 5px; }
 .item .h { width: 16px; }
 .item .h::after { height: 10px; }
-.item span { pointer-events: none; overflow: hidden; text-overflow: ellipsis; padding: 0 6px; }
+.item .wave { position: absolute; inset: 0; background-repeat: no-repeat; pointer-events: none; }
+.item span { position: relative; z-index: 4; pointer-events: none; overflow: hidden; text-overflow: ellipsis; padding: 0 18px; }
 .ghost {
   position: absolute; top: 0; height: 24px; border: 1px dashed var(--line); background: transparent; color: var(--muted);
-  border-radius: 5px; font-size: 11px; padding: 0 10px; white-space: nowrap;
+  border-radius: 5px; font-size: 11px; padding: 0 10px; white-space: nowrap; z-index: 10;
 }
+.tp-mid { display: flex; align-items: center; gap: 4px; }
+.tp-mid .icon-btn { color: var(--muted); width: 38px; height: 38px; }
+.tp-mid .icon-btn svg { width: 18px; height: 18px; }
 .playhead { position: absolute; top: 0; bottom: 0; left: 50%; width: 2px; margin-left: -1px; background: #fff; pointer-events: none; z-index: 10; box-shadow: 0 0 0 1px #0006; }
 .playhead::before { content: ""; position: absolute; top: 0; left: -4px; width: 10px; height: 10px; background: #fff; border-radius: 0 0 5px 5px; }
 
@@ -209,8 +241,6 @@ textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
 @media (min-width: 700px) {
   .zoom-hint::after { content: " · Ctrl+rueda"; }
 }
-.clip.sel .meta { left: 20px; }
-.clip.sel .badge { right: 20px; }
 
 /* Pulsación larga: barra de progreso de 2 s sobre el elemento */
 .pressing::before {
