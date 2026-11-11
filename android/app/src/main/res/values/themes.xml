@@ -1,0 +1,11 @@
+<resources>
+    <color name="bg">#0B0C10</color>
+    <color name="ic_launcher_bg">#7C4DFF</color>
+    <style name="Theme.EditaYa" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/bg</item>
+        <item name="android:colorBackground">@color/bg</item>
+        <item name="android:statusBarColor">@color/bg</item>
+        <item name="android:navigationBarColor">@color/bg</item>
+        <item name="android:colorAccent">#22D3EE</item>
+    </style>
+</resources>

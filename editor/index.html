@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0b0c10">
+<meta name="description" content="EditaYa: editor de video para el celular. Corta, une, agrega texto, música, filtros y transiciones.">
+<title>EditaYa · Editor de video</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="app">
+  <header class="topbar">
+    <button id="btn-new" class="icon-btn" title="Proyecto nuevo" aria-label="Proyecto nuevo"></button>
+    <div class="brand"><img src="icons/icon.svg" alt="" width="24" height="24"><span>EditaYa</span></div>
+    <button id="btn-undo" class="icon-btn" title="Deshacer" aria-label="Deshacer"></button>
+    <button id="btn-redo" class="icon-btn" title="Rehacer" aria-label="Rehacer"></button>
+    <button id="btn-export" class="btn-primary">Exportar</button>
+  </header>
+
+  <section class="preview">
+    <div id="stage"><canvas id="canvas" width="720" height="1280"></canvas></div>
+    <div id="empty" class="empty hidden">
+      <div class="empty-card">
+        <div class="empty-icon"></div>
+        <h1>Crea tu video</h1>
+        <p>Importa videos y fotos de tu galería para empezar a editar.</p>
+        <button id="btn-start" class="btn-primary big">+ Nuevo proyecto</button>
+      </div>
+    </div>
+  </section>
+
+  <div class="transport">
+    <span class="time"><b id="time">00:00.0</b> / <span id="dur">00:00.0</span></span>
+    <button id="btn-play" class="play" aria-label="Reproducir"></button>
+    <span class="zoom-hint">Pellizca para zoom</span>
+  </div>
+
+  <section class="timeline-wrap">
+    <div id="timeline">
+      <div id="tl-inner">
+        <div id="ruler" class="ruler"></div>
+        <div id="track-video" class="track"></div>
+        <div id="track-text" class="track lanes"></div>
+        <div id="track-audio" class="track lanes"></div>
+      </div>
+    </div>
+    <div class="playhead"></div>
+  </section>
+
+  <nav id="toolbar" class="toolbar"></nav>
+</div>
+
+<div id="sheet" class="sheet" aria-hidden="true">
+  <div class="sheet-head"><span class="sheet-title"></span><button class="icon-btn sheet-ok" aria-label="Listo"></button></div>
+  <div class="sheet-body"></div>
+</div>
+
+<div id="exportov" class="overlay hidden">
+  <div class="ex-card">
+    <div class="ex-title">Exportando video…</div>
+    <div class="bar"><i id="ex-bar"></i></div>
+    <div id="ex-pct" class="ex-pct">0%</div>
+    <p class="hint">Mantén la app abierta y la pantalla encendida hasta que termine.</p>
+    <button id="ex-cancel" class="btn">Cancelar</button>
+  </div>
+</div>
+
+<div id="busy" class="overlay hidden"><div class="spinner"></div><div id="busy-msg">Cargando…</div></div>
+<div id="toast" class="toast"></div>
+<div id="pool" aria-hidden="true"></div>
+
+<input id="file-media" type="file" accept="video/*,image/*" multiple hidden>
+<input id="file-audio" type="file" accept="audio/*" hidden>
+
+<script src="app.js"></script>
+</body>
+</html>
