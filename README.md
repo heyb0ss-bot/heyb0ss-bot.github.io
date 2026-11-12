@@ -35,6 +35,8 @@ Editor de video para el celular, al estilo de las apps de edición rápida: impo
 | Texto y stickers | 5 fuentes, colores, sombra, contorno o caja, y animaciones (pop, aparecer, subir, máquina de escribir) |
 | Formato | 9:16, 16:9, 1:1, 4:5, 3:4 y 4:3; fondo desenfocado o de color |
 | Exportar | MP4 (o WebM según el dispositivo) a 720p o 1080p y 24/30/60 fps; guardar en Galería › Movies/EditaYa o compartir |
+| Mover | Mantén presionado un clip: se sacude y lo arrastras a otra posición |
+| Efectos | 11 efectos de video (glitch, VHS, grano, resplandor, pixelado, cine…) y 9 de audio (eco, sala, radio, teléfono, robot…) |
 | Proyecto | Deshacer y rehacer; el proyecto se guarda solo y se recupera al reabrir la app |
 
 ## Compilar la APK localmente

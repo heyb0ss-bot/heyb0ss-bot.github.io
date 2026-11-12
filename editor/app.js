@@ -58,10 +58,7 @@
     flip: '<path d="M12 3v18M8 7l-5 5 5 5zM16 7l5 5-5 5z"/>',
     reset: '<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/>',
     film: '<path d="M7 4.5v15l12.5-7.5z"/>',
-    layers: '<path d="M12 2l10 5-10 5L2 7z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/>',
-    up: '<path d="M12 19V5M5 12l7-7 7 7"/>',
-    down: '<path d="M12 5v14M5 12l7 7 7-7"/>',
-    opacity: '<circle cx="12" cy="12" r="9"/><path d="M12 3v18" /><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/>',
+    sparkle: '<path d="M12 3l1.9 5.6L19.5 10l-5.6 1.9L12 17.5l-1.9-5.6L4.5 10l5.6-1.4z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/>',
     stepB: '<path d="M6 5v14"/><path d="M19 5v14l-10-7z" fill="currentColor"/>',
     stepF: '<path d="M18 5v14"/><path d="M5 5v14l10-7z" fill="currentColor"/>',
     zoomIn: '<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3M8 11h6M11 8v6"/>',
@@ -95,6 +92,18 @@
     { id: 'zoom', name: 'Zoom' }, { id: 'slide', name: 'Deslizar' }, { id: 'blur', name: 'Desenfoque' },
   ];
   const TR_DUR = 0.5;
+  const VFX = [
+    { id: 'none', name: 'Ninguno', ic: '⦸' }, { id: 'shake', name: 'Temblor', ic: '〰️' }, { id: 'pulse', name: 'Pulso', ic: '💓' },
+    { id: 'kenburns', name: 'Zoom lento', ic: '🔍' }, { id: 'glitch', name: 'Glitch', ic: '📺' }, { id: 'vhs', name: 'VHS', ic: '📼' },
+    { id: 'grain', name: 'Grano', ic: '🎞️' }, { id: 'flash', name: 'Destellos', ic: '⚡' }, { id: 'glow', name: 'Resplandor', ic: '✨' },
+    { id: 'mirror', name: 'Espejo', ic: '🪞' }, { id: 'pixel', name: 'Pixelado', ic: '👾' }, { id: 'cinema', name: 'Cine', ic: '🎬' },
+  ];
+  const AFX = [
+    { id: 'none', name: 'Ninguno', ic: '⦸' }, { id: 'echo', name: 'Eco', ic: '🔁' }, { id: 'hall', name: 'Sala grande', ic: '🏛️' },
+    { id: 'radio', name: 'Radio', ic: '📻' }, { id: 'phone', name: 'Teléfono', ic: '☎️' }, { id: 'bass', name: 'Más graves', ic: '🔊' },
+    { id: 'treble', name: 'Más agudos', ic: '🎶' }, { id: 'underwater', name: 'Bajo el agua', ic: '🌊' }, { id: 'lofi', name: 'Lo-fi', ic: '📼' },
+    { id: 'robot', name: 'Robot', ic: '🤖' },
+  ];
   const TEXT_ANIMS = [
     { id: 'none', name: 'Ninguna' }, { id: 'fade', name: 'Aparecer' }, { id: 'pop', name: 'Pop' },
     { id: 'slide', name: 'Subir' }, { id: 'type', name: 'Máquina' },
@@ -113,7 +122,7 @@
   const LS_KEY = 'editaya.project.v1';
 
   // ---------- estado ----------
-  const newProject = () => ({ v: 1, ratio: '9:16', bg: { type: 'blur', color: '#000000' }, clips: [], overlays: [], texts: [], audios: [] });
+  const newProject = () => ({ v: 1, ratio: '9:16', bg: { type: 'blur', color: '#000000' }, clips: [], texts: [], audios: [] });
   let S = newProject();
   const media = new Map(); // id -> {id, kind, url, name, duration, el, w, h, thumbs[], wave}
   let sel = null; // {type:'clip'|'text'|'audio', id}
@@ -124,8 +133,7 @@
   let exporting = null;
   let exportScale = 1;
   let hist = [], hi = -1;
-  let importDest = 'main';
-  let textBoxes = [], ovBoxes = [];
+  let textBoxes = [];
 
   // ---------- DOM ----------
   const cv = $('#canvas'), ctx = cv.getContext('2d');
@@ -167,40 +175,18 @@
     return S.clips.map((c, idx) => { const o = { clip: c, idx, start: s, len: clipLen(c) }; s += o.len; return o; });
   }
   const mainDur = () => S.clips.reduce((a, c) => a + clipLen(c), 0);
-  const ovLen = (c) => (c.out - c.in) / c.speed;
-  const maxTrack = () => S.overlays.reduce((m, c) => Math.max(m, c.track), -1);
-  const isOverlay = (c) => c && typeof c.track === 'number';
-  function trackFree(tr, start, len, except) {
-    return !S.overlays.some((o) => o !== except && o.track === tr && o.start < start + len - 1e-3 && start < o.start + ovLen(o) - 1e-3);
-  }
-  function freeTrack(start, len, from = 0, except) {
-    for (let tr = from; ; tr++) if (trackFree(tr, start, len, except)) return tr;
-  }
-  /** Coloca una superposición en una pista libre y compacta las pistas vacías. */
-  function placeOverlay(it) {
-    if (!trackFree(it.track, it.start, ovLen(it), it)) it.track = freeTrack(it.start, ovLen(it), it.track, it);
-    normTracks();
-  }
-  function normTracks() {
-    const used = [...new Set(S.overlays.map((o) => o.track))].sort((a, b) => a - b);
-    S.overlays.forEach((o) => { o.track = used.indexOf(o.track); });
-  }
-  function overlaysAt(time) {
-    return S.overlays.filter((c) => time >= c.start && time < c.start + ovLen(c)).sort((a, b) => a.track - b.track);
-  }
   function totalDur() {
     const m = mainDur();
     if (m > 0) return m;
     let e = 0;
     for (const x of S.texts) e = Math.max(e, x.start + x.dur);
     for (const a of S.audios) e = Math.max(e, a.start + (a.out - a.in));
-    for (const c of S.overlays) e = Math.max(e, c.start + ovLen(c));
     return e;
   }
   function clipAt(time) {
     const L = layout();
     if (trimPreview) {
-      const c = findItem('clip', trimPreview.id) || findItem('overlay', trimPreview.id);
+      const c = findItem('clip', trimPreview.id);
       if (c) return { clip: c, idx: -1, start: 0, len: clipLen(c), local: 0, src: trimPreview.src };
     }
     for (let i = 0; i < L.length; i++) {
@@ -220,7 +206,7 @@
     return clamp(st, a.clip.in, Math.max(a.clip.in, max));
   }
   function findItem(kind, id) {
-    const arr = kind === 'clip' ? S.clips : kind === 'overlay' ? S.overlays : kind === 'text' ? S.texts : S.audios;
+    const arr = kind === 'clip' ? S.clips : kind === 'text' ? S.texts : S.audios;
     return arr.find((x) => x.id === id);
   }
   const selItem = () => (sel ? findItem(sel.type, sel.id) : null);
@@ -318,10 +304,9 @@
   function updateHistBtns() { $('#btn-undo').disabled = hi <= 0; $('#btn-redo').disabled = hi >= hist.length - 1; }
   function refresh() {
     applyCanvasSize();
-    gcOverlays();
     t = clamp(t, 0, totalDur());
     renderTimeline(); renderToolbar(); updateLabels(); updateHistBtns();
-    const empty = !S.clips.length && !S.overlays.length && !S.texts.length && !S.audios.length;
+    const empty = !S.clips.length && !S.texts.length && !S.audios.length;
     $('#empty').classList.toggle('hidden', !empty);
     $('#btn-export').disabled = empty;
     dirty = true;
@@ -447,7 +432,6 @@
       master = actx.createGain(); master.connect(actx.destination);
       recDest = actx.createMediaStreamDestination(); master.connect(recDest);
       for (const m of media.values()) routeAudio(m);
-      for (const r of ovEls.values()) routeAudio(r);
     }
     if (actx.state === 'suspended') actx.resume().catch(() => {});
   }
@@ -458,46 +442,54 @@
       m.gain = actx.createGain(); m.srcNode.connect(m.gain); m.gain.connect(master);
     } catch (e) { console.warn('audio', e); }
   }
+  function impulse(c, dur, decay) {
+    const len = Math.floor(c.sampleRate * dur), buf = c.createBuffer(2, len, c.sampleRate);
+    for (let ch = 0; ch < 2; ch++) { const d = buf.getChannelData(ch); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, decay); }
+    return buf;
+  }
+  function makeAfx(id) {
+    const c = actx, input = c.createGain(), stops = [];
+    let output = input;
+    const bq = (type, f, q) => { const n = c.createBiquadFilter(); n.type = type; n.frequency.value = f; if (q) n.Q.value = q; return n; };
+    const shaper = (k) => {
+      const n = c.createWaveShaper(), curve = new Float32Array(1024);
+      for (let i = 0; i < 1024; i++) { const x = (i / 1023) * 2 - 1; curve[i] = ((1 + k) * x) / (1 + k * Math.abs(x)); }
+      n.curve = curve; return n;
+    };
+    const chain = (...nodes) => { let prev = input; nodes.forEach((n) => { prev.connect(n); prev = n; }); output = prev; };
+    const wetDry = (wetNode, wet) => { output = c.createGain(); const w = c.createGain(); w.gain.value = wet; input.connect(output); input.connect(wetNode.in || wetNode); (wetNode.out || wetNode).connect(w); w.connect(output); };
+    switch (id) {
+      case 'echo': { const d = c.createDelay(1.5), fb = c.createGain(); d.delayTime.value = 0.28; fb.gain.value = 0.42; d.connect(fb); fb.connect(d); wetDry(d, 0.55); break; }
+      case 'hall': { const cv2 = c.createConvolver(); cv2.buffer = impulse(c, 2.6, 2.4); wetDry(cv2, 0.7); break; }
+      case 'radio': { const o = c.createGain(); o.gain.value = 0.8; chain(bq('highpass', 500), bq('lowpass', 3800), shaper(6), o); break; }
+      case 'phone': { const o = c.createGain(); o.gain.value = 0.7; chain(bq('highpass', 900), bq('lowpass', 2600), shaper(18), o); break; }
+      case 'bass': { const f = bq('lowshelf', 220); f.gain.value = 12; chain(f); break; }
+      case 'treble': { const f = bq('highshelf', 3000); f.gain.value = 10; chain(f); break; }
+      case 'underwater': chain(bq('lowpass', 420, 6)); break;
+      case 'lofi': { const o = c.createGain(); o.gain.value = 0.8; chain(bq('highpass', 250), bq('lowpass', 2600), shaper(25), o); break; }
+      case 'robot': {
+        const ring = c.createGain(); ring.gain.value = 0;
+        const osc = c.createOscillator(); osc.frequency.value = 55; osc.connect(ring.gain); osc.start(); stops.push(osc);
+        chain(ring); break;
+      }
+    }
+    return { input, output, stops };
+  }
+  /** Cambia el efecto de audio de un elemento multimedia (fuente → efecto → volumen). */
+  function setAudioFx(m, id) {
+    id = id || 'none';
+    if (!actx || !m.srcNode || m.fxId === id) return;
+    try { m.srcNode.disconnect(); } catch (e) { /* */ }
+    if (m.fx) { m.fx.stops.forEach((o) => { try { o.stop(); } catch (e) { /* */ } }); try { m.fx.output.disconnect(); } catch (e) { /* */ } }
+    m.fx = null;
+    if (id !== 'none') { m.fx = makeAfx(id); m.srcNode.connect(m.fx.input); m.fx.output.connect(m.gain); } else m.srcNode.connect(m.gain);
+    m.fxId = id;
+  }
   function setGain(m, v) {
     if (m.gain) m.gain.gain.value = v; else if (m.el) m.el.volume = clamp(v, 0, 1);
   }
 
-  // Cada superposición de video tiene su propio <video>, para poder reproducirse
-  // a la vez que el clip principal (aunque usen el mismo archivo).
-  const ovEls = new Map(); // clipId -> {kind, el, gain}
-  function ovRec(c) {
-    const m = media.get(c.mediaId);
-    if (!m || m.kind !== 'video') return null;
-    let rec = ovEls.get(c.id);
-    if (!rec || rec.mediaId !== c.mediaId) {
-      if (rec) dropOv(c.id);
-      const el = document.createElement('video');
-      el.preload = 'auto'; el.playsInline = true; el.setAttribute('playsinline', ''); el.src = m.url;
-      el.addEventListener('seeked', () => {
-        if (el._pending != null) { const p = el._pending; el._pending = null; el.currentTime = p; }
-        dirty = true;
-      });
-      el.addEventListener('loadeddata', () => { dirty = true; });
-      pool.appendChild(el);
-      rec = { kind: 'video', el, mediaId: c.mediaId };
-      ovEls.set(c.id, rec);
-      routeAudio(rec);
-    }
-    return rec;
-  }
-  function dropOv(id) {
-    const rec = ovEls.get(id); if (!rec) return;
-    try { rec.el.pause(); } catch (e) { /* */ }
-    if (rec.gain) { try { rec.gain.disconnect(); } catch (e) { /* */ } }
-    rec.el.removeAttribute('src'); rec.el.load(); rec.el.parentNode && rec.el.parentNode.removeChild(rec.el);
-    ovEls.delete(id);
-  }
-  function gcOverlays() { for (const id of [...ovEls.keys()]) if (!findItem('overlay', id)) dropOv(id); }
-  function elFor(c) {
-    const m = media.get(c.mediaId); if (!m) return null;
-    if (isOverlay(c) && m.kind === 'video') { const r = ovRec(c); return r && r.el; }
-    return m.el;
-  }
+  const elFor = (c) => { const m = media.get(c.mediaId); return m ? m.el : null; };
 
   // ---------- importación ----------
   function insertionIndex() {
@@ -524,15 +516,7 @@
         const id = uid();
         const m = await loadMedia(id, f, kind, f.name || 'archivo');
         try { await DB.put(id, { blob: f, name: m.name, kind }); } catch (e) { dbFail = true; }
-        if (dest === 'overlay' && kind !== 'audio') {
-          const len = kind === 'image' ? 3 : m.duration;
-          S.overlays.push({
-            id: uid(), mediaId: id, kind, in: 0, out: len, speed: 1, volume: 1, start: t, track: freeTrack(t, len),
-            filter: 'none', adj: { b: 0, c: 0, s: 0, h: 0, w: 0, v: 0 }, fit: 'fit', zoom: 0.5, rot: 0, flip: false, px: 0, py: 0,
-            opacity: 1, fadeIn: 0, fadeOut: 0,
-          });
-          sel = { type: 'overlay', id: S.overlays[S.overlays.length - 1].id };
-        } else if (kind === 'audio') {
+        if (kind === 'audio') {
           S.audios.push({ id: uid(), mediaId: id, name: m.name, start: dest === 'audio' ? t : 0, in: 0, out: m.duration, volume: 1, fadeIn: 0, fadeOut: 0 });
         } else {
           S.clips.splice(at++, 0, {
@@ -552,15 +536,14 @@
       if (wasEmpty && firstMedia && firstMedia.w) S.ratio = closestRatio(firstMedia.w, firstMedia.h);
       commit(); seekPreview();
       let seen = false;
-      try { seen = !!localStorage.getItem('editaya.tip1'); localStorage.setItem('editaya.tip1', '1'); } catch (e) { /* */ }
-      if (!seen) setTimeout(() => toast('Consejo: toca un clip para editarlo. Mantenlo presionado 2 s para eliminarlo.', 6000), 400);
+      try { seen = !!localStorage.getItem('editaya.tip2'); localStorage.setItem('editaya.tip2', '1'); } catch (e) { /* */ }
+      if (!seen) setTimeout(() => toast('Consejo: toca un clip para editarlo. Mantenlo presionado para cambiarlo de lugar.', 6000), 400);
     }
   }
 
   // ---------- reproducción ----------
   function pauseAll() {
     for (const m of media.values()) if (m.el && m.kind !== 'image' && !m.el.paused) m.el.pause();
-    for (const r of ovEls.values()) if (!r.el.paused) r.el.pause();
   }
   function play() {
     if (totalDur() <= 0) return;
@@ -590,10 +573,6 @@
     if (a && a.clip.kind === 'video') {
       const m = media.get(a.clip.mediaId), el = elFor(a.clip);
       if (m && el) seekEl(el, srcTimeOf(a, m));
-    }
-    if (!trimPreview) for (const c of overlaysAt(t)) {
-      if (c.kind !== 'video') continue;
-      const r = ovRec(c); if (r) seekEl(r.el, c.in + (t - c.start) * c.speed);
     }
     dirty = true;
   }
@@ -629,24 +608,6 @@
     } else activeClipId = null;
     for (const m of media.values()) if (m.kind === 'video' && m !== activeMedia && !m.el.paused) m.el.pause();
 
-    // superposiciones de video (sincronizadas al reloj principal)
-    const activeOv = new Set();
-    for (const c of S.overlays) {
-      if (c.kind !== 'video') continue;
-      const local = nt - c.start, len = ovLen(c);
-      if (local < 0 || local >= len) continue;
-      const r = ovRec(c); if (!r) continue;
-      activeOv.add(r);
-      const el = r.el, want = c.in + local * c.speed;
-      if (el.playbackRate !== c.speed) el.playbackRate = c.speed;
-      if (!el.seeking && Math.abs(el.currentTime - want) > 0.3) el.currentTime = want;
-      if (el.paused) el.play().catch(() => {});
-      let f = 1;
-      if (c.fadeIn > 0) f = Math.min(f, local / c.fadeIn);
-      if (c.fadeOut > 0) f = Math.min(f, (len - local) / c.fadeOut);
-      setGain(r, c.volume * clamp(f, 0, 1));
-    }
-    for (const r of ovEls.values()) if (!activeOv.has(r) && !r.el.paused) r.el.pause();
 
     // pistas de audio
     const activeAudio = new Map();
@@ -659,6 +620,7 @@
       const au = activeAudio.get(m.id);
       if (!au) { if (!m.el.paused) m.el.pause(); continue; }
       const local = nt - au.start, want = au.in + local, len = au.out - au.in;
+      setAudioFx(m, au.afx);
       if (Math.abs(m.el.currentTime - want) > 0.3) m.el.currentTime = want;
       if (m.el.paused) m.el.play().catch(() => {});
       let f = 1;
@@ -705,13 +667,82 @@
     if (m.kind === 'image') return [m.el.naturalWidth, m.el.naturalHeight];
     return [m.el.videoWidth || m.w, m.el.videoHeight || m.h];
   }
-  function drawMedia(src, sw, sh, W, H, c, extraScale, dx) {
+  const rnd = (n) => { const x = Math.sin(n * 12.9898 + 78.233) * 43758.5453; return x - Math.floor(x); };
+  let grainCv = null;
+  const pixCv = document.createElement('canvas');
+  function noiseCanvas() {
+    const c = document.createElement('canvas'); c.width = c.height = 256;
+    const g = c.getContext('2d'), img = g.createImageData(256, 256);
+    for (let i = 0; i < img.data.length; i += 4) { const v = Math.random() * 255; img.data[i] = img.data[i + 1] = img.data[i + 2] = v; img.data[i + 3] = 255; }
+    g.putImageData(img, 0, 0); return c;
+  }
+  /** Efectos que se aplican sobre el cuadro ya dibujado del clip. */
+  function postFx(fx, amt, W, H, local, fr) {
+    const k = Math.min(W, H) / 720;
+    ctx.save(); ctx.globalAlpha = 1; ctx.filter = 'none';
+    switch (fx) {
+      case 'glitch':
+        if (rnd(fr * 1.7) < 0.3 + 0.5 * amt) {
+          const n = 3 + Math.floor(rnd(fr) * 6);
+          for (let i = 0; i < n; i++) {
+            const y = rnd(fr + i * 3.1) * H, h = (8 + rnd(fr + i) * 70) * k, off = (rnd(fr + i * 5.7) - 0.5) * W * 0.14 * amt;
+            ctx.drawImage(cv, 0, y, W, h, off, y, W, h);
+          }
+          ctx.globalCompositeOperation = 'screen'; ctx.globalAlpha = 0.45 * amt; ctx.filter = 'hue-rotate(150deg) saturate(3)';
+          ctx.drawImage(cv, (rnd(fr + 2) > 0.5 ? 1 : -1) * 10 * k * amt, 0);
+        }
+        break;
+      case 'vhs': {
+        ctx.globalCompositeOperation = 'screen'; ctx.globalAlpha = 0.3 * amt; ctx.drawImage(cv, 5 * k, 0);
+        ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+        ctx.fillStyle = `rgba(0,0,0,${0.25 * amt})`;
+        for (let y = 0; y < H; y += 4 * k) ctx.fillRect(0, y, W, 1.6 * k);
+        ctx.fillStyle = `rgba(255,255,255,${0.09 * amt})`; ctx.fillRect(0, ((local * 0.3) % 1) * H, W, 34 * k);
+        ctx.font = `700 ${30 * k}px ui-monospace,monospace`; ctx.textBaseline = 'top'; ctx.fillStyle = 'rgba(255,255,255,.85)';
+        ctx.fillText('▶ PLAY', 28 * k, 28 * k);
+        break;
+      }
+      case 'grain':
+        if (!grainCv) grainCv = noiseCanvas();
+        ctx.globalCompositeOperation = 'overlay'; ctx.globalAlpha = 0.6 * amt;
+        ctx.translate(-rnd(fr) * 256, -rnd(fr + 1) * 256);
+        ctx.fillStyle = ctx.createPattern(grainCv, 'repeat'); ctx.fillRect(0, 0, W + 256, H + 256);
+        break;
+      case 'flash': {
+        const a = amt * Math.max(0, 1 - ((local * 1.5) % 1) * 5) * 0.85;
+        if (a > 0) { ctx.fillStyle = `rgba(255,255,255,${a})`; ctx.fillRect(0, 0, W, H); }
+        break;
+      }
+      case 'glow':
+        ctx.globalCompositeOperation = 'screen'; ctx.globalAlpha = 0.75 * amt; ctx.filter = `blur(${Math.round(18 * k)}px) brightness(1.1)`;
+        ctx.drawImage(cv, 0, 0);
+        break;
+      case 'mirror':
+        ctx.translate(W, 0); ctx.scale(-1, 1);
+        ctx.drawImage(cv, 0, 0, Math.ceil(W / 2), H, 0, 0, Math.ceil(W / 2), H);
+        break;
+      case 'pixel': {
+        const bs = Math.max(2, Math.round((4 + 36 * amt) * k)), pw = Math.max(1, Math.round(W / bs)), ph = Math.max(1, Math.round(H / bs));
+        if (pixCv.width !== pw || pixCv.height !== ph) { pixCv.width = pw; pixCv.height = ph; }
+        pixCv.getContext('2d').drawImage(cv, 0, 0, pw, ph);
+        ctx.imageSmoothingEnabled = false; ctx.drawImage(pixCv, 0, 0, W, H); ctx.imageSmoothingEnabled = true;
+        break;
+      }
+      case 'cinema': {
+        const bh = H * (0.05 + 0.1 * amt);
+        ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, bh); ctx.fillRect(0, H - bh, W, bh);
+        break;
+      }
+    }
+    ctx.restore();
+  }
+  function drawMedia(src, sw, sh, W, H, c, extraScale, dx, dy = 0) {
     const rot = ((c.rot || 0) % 360 + 360) % 360;
     const [iw, ih] = rot % 180 ? [sh, sw] : [sw, sh];
     const s = c.fit === 'fill' ? Math.max(W / iw, H / ih) : Math.min(W / iw, H / ih);
     const k = s * (c.zoom || 1) * extraScale;
     ctx.save();
-    ctx.translate(W / 2 + (c.px || 0) * W + dx, H / 2 + (c.py || 0) * H);
+    ctx.translate(W / 2 + (c.px || 0) * W + dx, H / 2 + (c.py || 0) * H + dy);
     ctx.rotate((rot * Math.PI) / 180);
     if (c.flip) ctx.scale(-1, 1);
     ctx.drawImage(src, (-sw * k) / 2, (-sh * k) / 2, sw * k, sh * k);
@@ -722,29 +753,6 @@
   function elSize(m, el) {
     if (m.kind === 'image') return [el.naturalWidth, el.naturalHeight];
     return [el.videoWidth || m.w, el.videoHeight || m.h];
-  }
-  function drawOverlays(W, H) {
-    ovBoxes = [];
-    if (trimPreview) return;
-    for (const c of overlaysAt(t)) {
-      const m = media.get(c.mediaId), el = m && elFor(c);
-      if (!el) continue;
-      if (m.kind === 'image' ? !el.complete : el.readyState < 2) continue;
-      const [sw, sh] = elSize(m, el);
-      if (!sw || !sh) continue;
-      const local = t - c.start, len = ovLen(c);
-      let a = c.opacity == null ? 1 : c.opacity;
-      if (c.fadeIn > 0) a *= clamp(local / c.fadeIn, 0, 1);
-      if (c.fadeOut > 0) a *= clamp((len - local) / c.fadeOut, 0, 1);
-      ctx.save(); ctx.globalAlpha = a; ctx.filter = filterCss(c);
-      const box = drawMedia(el, sw, sh, W, H, c, 1, 0);
-      ctx.restore();
-      ovBoxes.push({ id: c.id, ...box });
-      if (!exporting && sel && sel.type === 'overlay' && sel.id === c.id) {
-        const k = Math.min(W, H) / 720;
-        ctx.save(); ctx.lineWidth = 3 * k; ctx.strokeStyle = '#22d3ee'; ctx.strokeRect(box.x, box.y, box.w, box.h); ctx.restore();
-      }
-    }
   }
   function drawBlurBg(src, sw, sh, W, H) {
     const sW = Math.max(8, Math.round(W / 28)), sH = Math.max(8, Math.round(H / 28));
@@ -795,7 +803,12 @@
         let f = filterCss(c);
         if (blur) f = (f === 'none' ? '' : f + ' ') + `blur(${blur.toFixed(1)}px)`;
         ctx.filter = f || 'none';
-        drawMedia(src, sw, sh, W, H, c, scale, dx);
+        const fx = c.fx || 'none', amt = (c.fxAmt == null ? 60 : c.fxAmt) / 100, fr = Math.floor(t * 30);
+        let dy = 0;
+        if (fx === 'shake') { dx += (rnd(fr) - 0.5) * W * 0.05 * amt; dy = (rnd(fr + 7.3) - 0.5) * H * 0.05 * amt; scale *= 1 + 0.06 * amt; }
+        else if (fx === 'pulse') scale *= 1 + 0.12 * amt * Math.pow(Math.max(0, Math.sin(Math.PI * 2 * a.local * 2)), 4);
+        else if (fx === 'kenburns') scale *= 1 + 0.3 * amt * (a.local / Math.max(0.1, a.len));
+        drawMedia(src, sw, sh, W, H, c, scale, dx, dy);
         ctx.filter = 'none';
         const adj = c.adj || {};
         if (adj.w) {
@@ -809,13 +822,13 @@
           g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, `rgba(0,0,0,${adj.v / 100})`);
           ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
         }
+        if (fx !== 'none') postFx(fx, amt, W, H, a.local, fr);
         ctx.globalAlpha = 1;
         if (flash > 0) { ctx.fillStyle = `rgba(255,255,255,${flash})`; ctx.fillRect(0, 0, W, H); }
         draw.hasFrame = true;
       }
     }
     ctx.restore();
-    drawOverlays(W, H);
     if (!trimPreview) drawTexts(W, H); else textBoxes = [];
   }
   function rrect(x, y, w, h, r) {
@@ -873,7 +886,7 @@
 
   // ---------- línea de tiempo ----------
   // Filas (de arriba a abajo): superposiciones (la de más arriba se dibuja encima), video principal, textos, audio.
-  const ROW_OV = 46, LANE = 28, HW = 22;
+  const LANE = 28, HW = 22;
   let tlRaf = 0;
   function scheduleTimeline() { if (!tlRaf) tlRaf = requestAnimationFrame(() => { tlRaf = 0; renderTimeline(); }); }
   function fmtRuler(s) { return s < 60 ? (Number.isInteger(s) ? s + 's' : s.toFixed(1) + 's') : fmt(s, false); }
@@ -895,7 +908,6 @@
   function snapTargets(excludeId, kind) {
     const s = [0, t];
     if (kind !== 'clip') for (const o of layout()) s.push(o.start, o.start + o.len);
-    for (const c of S.overlays) if (c.id !== excludeId) s.push(c.start, c.start + ovLen(c));
     for (const x of S.texts) if (x.id !== excludeId) s.push(x.start, x.start + x.dur);
     for (const a of S.audios) if (a.id !== excludeId) s.push(a.start, a.start + (a.out - a.in));
     return s;
@@ -929,10 +941,11 @@
     if (isSel) {
       const kl = X(pin) - left, kw = X(pout) - X(pin);
       inner += `<div class="keep" style="left:${kl}px;width:${kw}px"></div>` +
-        `<div class="h l" style="left:${kl}px"></div><div class="h r" style="left:${kl + kw - (kind === 'clip' || kind === 'overlay' ? HW : 16)}px"></div>`;
+        `<div class="h l" style="left:${kl}px"></div><div class="h r" style="left:${kl + kw - (kind === 'clip' ? HW : 16)}px"></div>`;
     }
-    const cls = `${o.cls}${isSel ? ' sel' : ''}${d ? ' dragging' : ''}`;
-    return `<div class="${cls}" data-kind="${kind}" data-id="${it.id}" style="left:${left}px;width:${width}px;${o.style || ''}">${inner}</div>`;
+    const cls = `${o.cls}${isSel ? ' sel' : ''}${d ? ' dragging' : ''}${d && d.lifted ? ' lifted' : ''}`;
+    const anim = d && d.lifted ? `animation-delay:-${Math.round(performance.now() - d.liftAt)}ms;` : '';
+    return `<div class="${cls}" data-kind="${kind}" data-id="${it.id}" style="left:${left}px;width:${width}px;${o.style || ''}${anim}">${inner}</div>`;
   }
   function lanesOf(items) {
     const lanes = [];
@@ -949,7 +962,6 @@
     const L = layout(), total = totalDur();
     const mainEnd = L.length ? L[L.length - 1].start + L[L.length - 1].len : 0;
     let end = total;
-    for (const c of S.overlays) end = Math.max(end, c.start + ovLen(c));
     for (const x of S.texts) end = Math.max(end, x.start + x.dur);
     for (const a of S.audios) end = Math.max(end, a.start + a.out - a.in);
     inner.style.width = pad * 2 + Math.max(end * pps, 1) + 90 + 'px';
@@ -966,36 +978,35 @@
     ruler.innerHTML = r;
 
     let h = '';
-    // --- superposiciones ---
-    let nTr = S.overlays.length ? maxTrack() + 1 : 0;
-    if (drag && drag.kind === 'overlay' && drag.mode === 'move' && drag.moved) nTr = Math.max(nTr, drag.ptrack + 1);
-    for (let tr = nTr - 1; tr >= 0; tr--) {
-      let row = '';
-      for (const c of S.overlays) {
-        const isD = drag && drag.id === c.id && drag.mode === 'move' && drag.moved;
-        if ((isD ? drag.ptrack : c.track) !== tr) continue;
-        const m = media.get(c.mediaId);
-        row += blockHTML('overlay', c, geoOf('overlay', c), {
-          cls: 'clip ov',
-          content: (a, w) => tilesHTML(m, a, w, c.speed) + `<span class="meta">${fmt(ovLen(c))}</span>`,
-        });
-      }
-      h += `<div class="row ov" style="height:${ROW_OV}px"><div class="row-label">${ic('layers')}<i>${tr + 1}</i></div>${row}</div>`;
-    }
-    if (!nTr) h += `<div class="row ghost-row"><div class="row-label">${ic('layers')}</div><button class="ghost" data-act="overlay" style="left:${pad + 6}px">+ Superposición</button></div>`;
-
     // --- pista principal ---
     let v = '';
-    L.forEach((o, i) => {
+    const ro = drag && drag.mode === 'reorder' ? drag : null;
+    const dc = ro && findItem('clip', ro.id);
+    if (dc) {
+      const others = S.clips.filter((c) => c.id !== ro.id), dw = clipLen(dc) * pps;
+      const put = (c, start) => {
+        const m = media.get(c.mediaId);
+        v += blockHTML('clip', c, { t0: start, in: c.in, out: c.out, speed: c.speed }, {
+          cls: 'clip', content: (a, w) => tilesHTML(m, a, w, c.speed) + `<span class="meta">${fmt(clipLen(c))}</span>`,
+        });
+      };
+      let st = 0;
+      others.forEach((c, i) => {
+        if (i === ro.target) { v += `<div class="slot" style="left:${pad + st * pps}px;width:${dw}px"></div>`; st += clipLen(dc); }
+        put(c, st); st += clipLen(c);
+      });
+      if (ro.target >= others.length) v += `<div class="slot" style="left:${pad + st * pps}px;width:${dw}px"></div>`;
+      put(dc, (ro.cx + tl.scrollLeft - ro.grab - pad) / pps);
+    } else L.forEach((o, i) => {
       const c = o.clip, m = media.get(c.mediaId);
-      const badges = [c.speed !== 1 ? c.speed + 'x' : '', c.filter !== 'none' ? '✦' : '', c.volume === 0 ? '🔇' : ''].filter(Boolean).join(' ');
+      const badges = [c.speed !== 1 ? c.speed + 'x' : '', c.filter !== 'none' ? '✦' : '', c.fx && c.fx !== 'none' ? '✺' : '', c.volume === 0 ? '🔇' : ''].filter(Boolean).join(' ');
       v += blockHTML('clip', c, { t0: o.start, in: c.in, out: c.out, speed: c.speed }, {
         cls: 'clip',
         content: (a, w) => tilesHTML(m, a, w, c.speed) + `<span class="meta">${fmt(o.len)}</span>${badges ? `<span class="badge">${badges}</span>` : ''}`,
       });
       if (i > 0) v += `<button class="tr-btn${c.trans !== 'none' ? ' on' : ''}" data-tr="${c.id}" style="left:${pad + o.start * pps}px" aria-label="Transición">${ic(c.trans !== 'none' ? 'trOn' : 'trSmall')}</button>`;
     });
-    v += `<button class="add-clip" data-act="add" style="left:${pad + mainEnd * pps + 12}px" aria-label="Agregar">${ic('plus')}</button>`;
+    if (!dc) v += `<button class="add-clip" data-act="add" style="left:${pad + mainEnd * pps + 12}px" aria-label="Agregar">${ic('plus')}</button>`;
     h += `<div class="row main"><div class="row-label">${ic('film')}</div>${v}</div>`;
 
     // --- textos y audio (con carriles si se superponen) ---
@@ -1022,7 +1033,7 @@
       return {
         cls: 'item audio', content: (a) => {
           const st = m && m.wave ? ` style="background-image:url('${m.wave}');background-size:${m.duration * pps}px 100%;background-position:${-a * pps}px 0"` : '';
-          return `<div class="wave"${st}></div><span>♪  ${esc(au.name)}</span>`;
+          return `<div class="wave"${st}></div><span>♪  ${esc(au.name)}${au.afx && au.afx !== 'none' ? '  ✺' : ''}</span>`;
         },
       };
     }, '+ Añadir audio', 'audio', 'music');
@@ -1074,50 +1085,48 @@
     if (sel) select(null);
   });
 
-  // pulsación larga (2 s) sobre un elemento: menú para eliminarlo
-  const LONG_MS = 2000;
+  // Mantener presionado: el elemento se sacude y queda "levantado" para moverlo.
+  // Clips principales: se reordenan entre los demás. Textos y audio: se mueven en el tiempo.
+  const LONG_MS = 450;
   let lp = null;
-  function clearLP() {
-    if (!lp) return;
-    clearTimeout(lp.timer);
-    $$('.pressing', inner).forEach((x) => x.classList.remove('pressing'));
-    lp = null;
-  }
+  function clearLP() { if (lp) { clearTimeout(lp.timer); lp = null; } }
   function itemTitle(kind, it) {
     if (kind === 'clip') return `${it.kind === 'image' ? 'Foto' : 'Clip'} ${S.clips.indexOf(it) + 1} · ${fmt(clipLen(it))}`;
-    if (kind === 'overlay') return `Superposición · pista ${it.track + 1} · ${fmt(ovLen(it))}`;
     if (kind === 'text') return it.sticker ? `Sticker ${it.text}` : `Texto «${(it.text || '').replace(/\n/g, ' ').slice(0, 22)}»`;
     return `Audio «${it.name.slice(0, 22)}»`;
   }
-  function longPress(kind, id) {
+  function liftItem(kind, id, l) {
     const it = findItem(kind, id); if (!it) return;
-    dragEndedAt = performance.now(); drag = null; trimPreview = null;
     if (playing) pause();
-    vibrate(35);
-    select(kind, id);
-    const el = $(`[data-kind="${kind}"][data-id="${id}"]`, inner);
-    showMenu({
-      title: itemTitle(kind, it),
-      anchor: el ? el.getBoundingClientRect() : null,
-      items: [
-        { label: 'Eliminar', icon: 'trash', danger: true, fn: () => { if (findItem(kind, id)) { sel = { type: kind, id }; delSel(); } } },
-        { label: 'Duplicar', icon: 'copy', fn: () => { if (findItem(kind, id)) { sel = { type: kind, id }; dupSel(); } } },
-        { label: 'Cancelar', muted: true },
-      ],
-    });
+    closeSheet(true);
+    vibrate(30);
+    sel = { type: kind, id };
+    const g = geoOf(kind, it);
+    drag = {
+      kind, id, mode: kind === 'clip' ? 'reorder' : 'move', lifted: true, liftAt: performance.now(), pid: l.pid,
+      x0: l.x + tl.scrollLeft, y0: l.y, cx: l.x, cy: l.y, sl0: tl.scrollLeft, g, pin: g.in, pout: g.out, pstart: g.t0,
+      moved: true, snapT: null, grab: l.x + tl.scrollLeft - (pad + g.t0 * pps), target: S.clips.indexOf(it),
+    };
+    dragEndedAt = Infinity; // ignorar el clic que llega al soltar
+    renderToolbar(); renderTimeline(); dragInfo();
+    requestAnimationFrame(autoScrollTick);
   }
   inner.addEventListener('pointerdown', (e) => {
     clearLP();
-    const it = e.target.closest('[data-kind]');
-    if (!it || e.target.closest('.h, button')) return;
-    const kind = it.dataset.kind, id = it.dataset.id;
-    it.classList.add('pressing');
-    lp = { x: e.clientX, y: e.clientY, pid: e.pointerId, sl: tl.scrollLeft, st: tl.scrollTop, timer: setTimeout(() => { clearLP(); longPress(kind, id); }, LONG_MS) };
+    const el = e.target.closest('[data-kind]');
+    if (!el || e.target.closest('.h, button')) return;
+    const kind = el.dataset.kind, id = el.dataset.id;
+    if (kind !== 'clip' && el.classList.contains('sel')) return; // ya se arrastra directamente
+    // Una vez levantado, impedir que el dedo desplace la línea de tiempo.
+    el.addEventListener('touchmove', (ev) => { if (drag && drag.lifted && ev.cancelable) ev.preventDefault(); }, { passive: false });
+    const l = { x: e.clientX, y: e.clientY, pid: e.pointerId, sl: tl.scrollLeft, st: tl.scrollTop };
+    l.timer = setTimeout(() => { if (lp === l) { lp = null; liftItem(kind, id, l); } }, LONG_MS);
+    lp = l;
   });
-  window.addEventListener('pointermove', (e) => { if (lp && e.pointerId === lp.pid && Math.hypot(e.clientX - lp.x, e.clientY - lp.y) > 10) clearLP(); });
+  window.addEventListener('pointermove', (e) => { if (lp && e.pointerId === lp.pid && Math.hypot(e.clientX - lp.x, e.clientY - lp.y) > 8) clearLP(); });
   window.addEventListener('pointerup', clearLP);
   window.addEventListener('pointercancel', clearLP);
-  tl.addEventListener('scroll', () => { if (lp && Math.abs(tl.scrollLeft - lp.sl) + Math.abs(tl.scrollTop - lp.st) > 10) clearLP(); }, { passive: true });
+  tl.addEventListener('scroll', () => { if (lp && Math.abs(tl.scrollLeft - lp.sl) + Math.abs(tl.scrollTop - lp.st) > 8) clearLP(); }, { passive: true });
   inner.addEventListener('contextmenu', (e) => e.preventDefault());
 
   // ----- arrastre: recortar (manijas) y mover superposiciones/textos/audio -----
@@ -1137,7 +1146,7 @@
     drag = {
       kind, id: it.id, mode: h ? (h.classList.contains('l') ? 'l' : 'r') : 'move', pid: e.pointerId,
       x0: e.clientX + tl.scrollLeft, y0: e.clientY, cx: e.clientX, cy: e.clientY, sl0: tl.scrollLeft,
-      g, pin: g.in, pout: g.out, pstart: g.t0, ptrack: it.track, moved: false, snapT: null,
+      g, pin: g.in, pout: g.out, pstart: g.t0, moved: false, snapT: null,
     };
     requestAnimationFrame(autoScrollTick);
   });
@@ -1149,6 +1158,14 @@
     const g = d.g, ds = dxp / pps;
     const targets = snapTargets(d.id, d.kind), tol = 10 / pps;
     const snap = (T) => { let best = null, bd = tol; for (const s of targets) { const q = Math.abs(s - T); if (q < bd) { bd = q; best = s; } } return best; };
+    if (d.mode === 'reorder') {
+      const fx = d.cx + tl.scrollLeft - pad, others = S.clips.filter((c) => c.id !== d.id);
+      let acc = 0, target = others.length;
+      for (let i = 0; i < others.length; i++) { const w = clipLen(others[i]) * pps; if (fx < acc + w / 2) { target = i; break; } acc += w; }
+      if (target !== d.target) vibrate(8);
+      d.target = target; scheduleTimeline(); dragInfo();
+      return;
+    }
     let snapT = null;
     if (d.mode === 'move') {
       const len = (g.out - g.in) / g.speed;
@@ -1156,7 +1173,6 @@
       const s1 = snap(st), s2 = snap(st + len);
       if (s1 != null) { st = s1; snapT = s1; } else if (s2 != null && s2 - len >= 0) { st = s2 - len; snapT = s2; }
       d.pstart = st;
-      if (d.kind === 'overlay') d.ptrack = clamp(it.track + Math.round((d.y0 - d.cy) / ROW_OV), 0, maxTrack() + 1);
     } else {
       const lim = trimLimits(d.kind, it, g), minSrc = 0.1 * g.speed;
       const T = (p) => g.t0 + (p - g.in) / g.speed, P = (T2) => g.in + (T2 - g.t0) * g.speed;
@@ -1169,7 +1185,7 @@
         const s = snap(T(p)); if (s != null && P(s) >= g.in + minSrc && P(s) <= lim.maxOut) { p = P(s); snapT = s; }
         d.pout = p;
       }
-      if (d.kind === 'clip' || d.kind === 'overlay') {
+      if (d.kind === 'clip') {
         trimPreview = { id: d.id, src: d.mode === 'l' ? d.pin : Math.max(d.pin, d.pout - 0.05) };
         const el = elFor(it); if (el && it.kind === 'video') seekEl(el, trimPreview.src);
       }
@@ -1180,8 +1196,10 @@
   function dragInfo() {
     const d = drag, info = $('#sel-info'); if (!d || !d.moved) return;
     const g = d.g, oldLen = (g.out - g.in) / g.speed;
-    if (d.mode === 'move') {
-      info.innerHTML = `<b>Inicio ${fmt(d.pstart)}${d.kind === 'overlay' ? ` · pista ${d.ptrack + 1}` : ''}</b><span>Suelta para colocarlo aquí</span>`;
+    if (d.mode === 'reorder') {
+      info.innerHTML = `<b>Mover clip</b><span>Suelta para dejarlo en la posición ${d.target + 1} de ${S.clips.length}</span>`;
+    } else if (d.mode === 'move') {
+      info.innerHTML = `<b>Inicio ${fmt(d.pstart)}</b><span>Suelta para colocarlo aquí</span>`;
     } else {
       const nl = (d.pout - d.pin) / g.speed, diff = nl - oldLen;
       const msg = diff < -0.005 ? `Se quitará ${Math.abs(diff).toFixed(2)} s (zona sombreada)` : diff > 0.005 ? `Se agregarán ${diff.toFixed(2)} s` : 'Sin cambios';
@@ -1194,8 +1212,8 @@
     if (drag.moved) {
       const r = tl.getBoundingClientRect(), zone = 48;
       let v = 0;
-      if (drag.cx < r.left + zone) v = -Math.ceil((r.left + zone - drag.cx) / 3);
-      else if (drag.cx > r.right - zone) v = Math.ceil((drag.cx - (r.right - zone)) / 3);
+      if (drag.cx < r.left + zone) v = -Math.min(12, Math.ceil((r.left + zone - drag.cx) / 4));
+      else if (drag.cx > r.right - zone) v = Math.min(12, Math.ceil((drag.cx - (r.right - zone)) / 4));
       if (v) { const before = tl.scrollLeft; tl.scrollLeft += v; if (tl.scrollLeft !== before) dragUpdate(); }
     }
     requestAnimationFrame(autoScrollTick);
@@ -1206,15 +1224,22 @@
   });
   function applyDrag(d) {
     const it = findItem(d.kind, d.id); if (!it) return '';
+    if (d.mode === 'reorder') {
+      const i = S.clips.indexOf(it);
+      if (i === d.target) return '';
+      S.clips.splice(i, 1); S.clips.splice(d.target, 0, it);
+      if (S.clips[0]) S.clips[0].trans = 'none';
+      const o = layout().find((x) => x.clip.id === it.id); if (o) t = o.start + 0.01;
+      return `Clip movido a la posición ${d.target + 1}`;
+    }
     const g = d.g, oldLen = (g.out - g.in) / g.speed;
     if (d.mode === 'move') {
       it.start = d.pstart;
-      if (d.kind === 'overlay') { it.track = d.ptrack; placeOverlay(it); }
       return '';
     }
     if (d.kind === 'clip') { it.in = d.pin; it.out = d.pout; }
     else if (d.kind === 'text') { it.start = d.pin; it.dur = d.pout - d.pin; }
-    else { it.start = g.t0 + (d.pin - g.in) / g.speed; it.in = d.pin; it.out = d.pout; if (d.kind === 'overlay') placeOverlay(it); }
+    else { it.start = g.t0 + (d.pin - g.in) / g.speed; it.in = d.pin; it.out = d.pout; }
     const diff = (d.pout - d.pin) / g.speed - oldLen;
     return diff < -0.005 ? `Recortado: se quitaron ${Math.abs(diff).toFixed(2)} s` : diff > 0.005 ? `Alargado ${diff.toFixed(2)} s` : '';
   }
@@ -1224,7 +1249,7 @@
     if (!d.moved) { scheduleTimeline(); return; }
     dragEndedAt = performance.now();
     const msg = applyDrag(d);
-    if (Math.abs(tl.scrollLeft - d.sl0) > 1) t = Math.max(0, tl.scrollLeft / pps);
+    if (d.mode !== 'reorder' && Math.abs(tl.scrollLeft - d.sl0) > 1) t = Math.max(0, tl.scrollLeft / pps);
     commit(); seekPreview();
     if (msg) { vibrate(15); toast(msg, 2500, { label: 'Deshacer', fn: () => histMove(-1) }); }
   };
@@ -1241,13 +1266,6 @@
     }
     return null;
   }
-  function hitOverlay(p) {
-    for (let i = ovBoxes.length - 1; i >= 0; i--) {
-      const b = ovBoxes[i];
-      if (p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h) return b;
-    }
-    return null;
-  }
   const pdist = () => { const [a, b] = [...ptrs.values()]; return Math.hypot(a.x - b.x, a.y - b.y); };
   cv.addEventListener('pointerdown', (e) => {
     if (exporting) return;
@@ -1261,11 +1279,6 @@
         const wasSel = sel && sel.type === 'text' && sel.id === hit.id;
         if (!wasSel) select('text', hit.id);
         gest = { type: 'text', id: hit.id, p0: p, orig: { x: x.x, y: x.y, size: x.size }, moved: false, wasSel };
-      } else if (hitOverlay(p)) {
-        const hb = hitOverlay(p), c = findItem('overlay', hb.id);
-        const wasSel = sel && sel.type === 'overlay' && sel.id === c.id;
-        if (!wasSel) select('overlay', c.id);
-        gest = { type: 'overlay', id: c.id, p0: p, orig: { px: c.px || 0, py: c.py || 0, zoom: c.zoom || 1 }, moved: false, wasSel };
       } else {
         const a = clipAt(t);
         if (sel && sel.type === 'clip' && a && a.clip.id === sel.id) {
@@ -1314,28 +1327,25 @@
 
   // ---------- barra de herramientas ----------
   const TOOLS = {
-    main: [['edit', 'edit', 'Editar clip'], ['add', 'media', 'Agregar'], ['overlay', 'layers', 'Superponer'], ['audio', 'music', 'Audio'], ['text', 'text', 'Texto'], ['sticker', 'smile', 'Stickers'], ['ratio', 'ratio', 'Formato'], ['bg', 'image', 'Fondo']],
-    clip: [['split', 'scissors', 'Dividir'], ['speed', 'speed', 'Velocidad'], ['volume', 'volume', 'Volumen'], ['filter', 'filter', 'Filtros'], ['adjust', 'sliders', 'Ajustes'], ['transform', 'crop', 'Encuadre'], ['transition', 'transition', 'Transición'], ['toOverlay', 'layers', 'A capa'], ['dup', 'copy', 'Duplicar'], ['moveL', 'left', 'A la izq.'], ['moveR', 'right', 'A la der.'], ['del', 'trash', 'Eliminar']],
-    image: [['split', 'scissors', 'Dividir'], ['duration', 'speed', 'Duración'], ['filter', 'filter', 'Filtros'], ['adjust', 'sliders', 'Ajustes'], ['transform', 'crop', 'Encuadre'], ['transition', 'transition', 'Transición'], ['toOverlay', 'layers', 'A capa'], ['dup', 'copy', 'Duplicar'], ['moveL', 'left', 'A la izq.'], ['moveR', 'right', 'A la der.'], ['del', 'trash', 'Eliminar']],
-    overlay: [['split', 'scissors', 'Dividir'], ['transform', 'crop', 'Encuadre'], ['opacity', 'opacity', 'Opacidad'], ['speed', 'speed', 'Velocidad'], ['volume', 'volume', 'Volumen'], ['filter', 'filter', 'Filtros'], ['adjust', 'sliders', 'Ajustes'], ['layerUp', 'up', 'Subir capa'], ['layerDown', 'down', 'Bajar capa'], ['toMain', 'film', 'A principal'], ['dup', 'copy', 'Duplicar'], ['del', 'trash', 'Eliminar']],
+    main: [['edit', 'edit', 'Editar clip'], ['add', 'media', 'Agregar'], ['effects', 'sparkle', 'Efectos'], ['audio', 'music', 'Audio'], ['text', 'text', 'Texto'], ['sticker', 'smile', 'Stickers'], ['ratio', 'ratio', 'Formato'], ['bg', 'image', 'Fondo']],
+    clip: [['split', 'scissors', 'Dividir'], ['speed', 'speed', 'Velocidad'], ['volume', 'volume', 'Volumen'], ['filter', 'filter', 'Filtros'], ['effects', 'sparkle', 'Efectos'], ['adjust', 'sliders', 'Ajustes'], ['transform', 'crop', 'Encuadre'], ['transition', 'transition', 'Transición'], ['dup', 'copy', 'Duplicar'], ['moveL', 'left', 'A la izq.'], ['moveR', 'right', 'A la der.'], ['del', 'trash', 'Eliminar']],
+    image: [['split', 'scissors', 'Dividir'], ['duration', 'speed', 'Duración'], ['filter', 'filter', 'Filtros'], ['effects', 'sparkle', 'Efectos'], ['adjust', 'sliders', 'Ajustes'], ['transform', 'crop', 'Encuadre'], ['transition', 'transition', 'Transición'], ['dup', 'copy', 'Duplicar'], ['moveL', 'left', 'A la izq.'], ['moveR', 'right', 'A la der.'], ['del', 'trash', 'Eliminar']],
     text: [['editText', 'edit', 'Editar'], ['split', 'scissors', 'Dividir'], ['dup', 'copy', 'Duplicar'], ['del', 'trash', 'Eliminar']],
-    audio: [['volume', 'volume', 'Volumen'], ['split', 'scissors', 'Dividir'], ['dup', 'copy', 'Duplicar'], ['del', 'trash', 'Eliminar']],
+    audio: [['volume', 'volume', 'Volumen'], ['effects', 'sparkle', 'Efectos'], ['split', 'scissors', 'Dividir'], ['dup', 'copy', 'Duplicar'], ['del', 'trash', 'Eliminar']],
   };
   function renderToolbar() {
     const it = selItem();
     let set = TOOLS.main, h = '';
     if (it) {
       set = sel.type === 'clip' ? (it.kind === 'image' ? TOOLS.image : TOOLS.clip) : TOOLS[sel.type];
-      if (sel.type === 'overlay' && it.kind === 'image') set = set.filter(([a]) => a !== 'speed' && a !== 'volume');
       h += `<button class="tool back" data-act="back">${ic('check')}<span>Listo</span></button>`;
     }
     h += set.map(([a, i, l]) => `<button class="tool${a === 'del' ? ' danger' : ''}" data-act="${a}">${ic(i)}<span>${l}</span></button>`).join('');
     toolbar.innerHTML = h; toolbar.scrollLeft = 0;
     const info = $('#sel-info');
     if (it) {
-      const tip = sel.type === 'clip' ? 'Arrastra los bordes blancos para recortar'
-        : sel.type === 'overlay' ? 'Arrastra para mover (también entre pistas) · bordes para recortar'
-          : 'Arrastra para mover · bordes para recortar o alargar';
+      const tip = sel.type === 'clip' ? 'Bordes blancos: recortar · mantén presionado para cambiarlo de lugar'
+        : 'Arrastra para mover · bordes para recortar o alargar';
       info.innerHTML = `<b>${esc(itemTitle(sel.type, it))}</b><span>${tip}</span>`;
       info.classList.remove('hidden');
     } else info.classList.add('hidden');
@@ -1352,12 +1362,8 @@
     const it = selItem();
     switch (name) {
       case 'back': select(null); break;
-      case 'add': importDest = 'main'; fileMedia.click(); break;
-      case 'overlay': importDest = 'overlay'; fileMedia.click(); break;
-      case 'opacity': if (it) sheetOpacity(it); break;
-      case 'toOverlay': toOverlay(); break;
-      case 'toMain': toMain(); break;
-      case 'layerUp': case 'layerDown': moveLayer(name === 'layerUp' ? 1 : -1); break;
+      case 'add': fileMedia.click(); break;
+      case 'effects': openEffects(); break;
       case 'audio': fileAudio.click(); break;
       case 'text': addText(); break;
       case 'sticker': sheetStickers(); break;
@@ -1395,12 +1401,6 @@
       it.out = cut;
       S.clips.splice(S.clips.indexOf(it) + 1, 0, b);
       sel = { type: 'clip', id: b.id };
-    } else if (sel.type === 'overlay') {
-      const local = t - it.start;
-      if (local < 0.1 || ovLen(it) - local < 0.1) { toast('Mueve el cabezal dentro de la capa para dividir'); return; }
-      const cut = it.in + local * it.speed;
-      const b = { ...clone(it), id: uid(), in: cut, start: t, fadeIn: 0 };
-      it.out = cut; it.fadeOut = 0; S.overlays.push(b); sel = { type: 'overlay', id: b.id };
     } else if (sel.type === 'text') {
       const local = t - it.start;
       if (local < 0.1 || it.dur - local < 0.1) { toast('Mueve el cabezal dentro del texto'); return; }
@@ -1418,7 +1418,6 @@
     const it = selItem(); if (!it) return;
     const b = { ...clone(it), id: uid() };
     if (sel.type === 'clip') S.clips.splice(S.clips.indexOf(it) + 1, 0, b);
-    else if (sel.type === 'overlay') { b.start = it.start + ovLen(it); S.overlays.push(b); placeOverlay(b); }
     else if (sel.type === 'text') { b.start = it.start + it.dur; S.texts.push(b); }
     else { b.start = it.start + (it.out - it.in); S.audios.push(b); }
     sel = { type: sel.type, id: b.id }; commit(); toast('Duplicado');
@@ -1433,52 +1432,12 @@
   }
   function delSel() {
     const it = selItem(); if (!it) return;
-    const arr = sel.type === 'clip' ? S.clips : sel.type === 'overlay' ? S.overlays : sel.type === 'text' ? S.texts : S.audios;
+    const arr = sel.type === 'clip' ? S.clips : sel.type === 'text' ? S.texts : S.audios;
     arr.splice(arr.indexOf(it), 1);
-    if (sel.type === 'overlay') normTracks();
     if (sel.type === 'clip' && S.clips[0]) S.clips[0].trans = 'none';
-    const what = sel.type === 'clip' ? 'Clip eliminado' : sel.type === 'overlay' ? 'Capa eliminada' : sel.type === 'text' ? (it.sticker ? 'Sticker eliminado' : 'Texto eliminado') : 'Audio eliminado';
+    const what = sel.type === 'clip' ? 'Clip eliminado' : sel.type === 'text' ? (it.sticker ? 'Sticker eliminado' : 'Texto eliminado') : 'Audio eliminado';
     sel = null; commit(); seekPreview(); vibrate(25);
     toast(what, 4000, { label: 'Deshacer', fn: () => histMove(-1) });
-  }
-  function toOverlay() {
-    const it = selItem(); if (!it || sel.type !== 'clip') return;
-    const o = layout().find((x) => x.clip.id === it.id);
-    S.clips.splice(S.clips.indexOf(it), 1);
-    if (S.clips[0]) S.clips[0].trans = 'none';
-    const c = { ...clone(it), start: o.start, opacity: 1, fadeIn: 0, fadeOut: 0, zoom: 0.5, fit: 'fit', px: 0, py: 0 };
-    delete c.trans;
-    c.track = freeTrack(c.start, ovLen(c));
-    S.overlays.push(c); normTracks();
-    sel = { type: 'overlay', id: c.id };
-    commit(); seekPreview(); toast('Movido a una capa encima del video principal');
-  }
-  function toMain() {
-    const it = selItem(); if (!it || sel.type !== 'overlay') return;
-    S.overlays.splice(S.overlays.indexOf(it), 1); normTracks();
-    const c = { ...clone(it), trans: 'none', zoom: 1, px: 0, py: 0 };
-    ['track', 'start', 'opacity', 'fadeIn', 'fadeOut'].forEach((k) => delete c[k]);
-    let idx = 0;
-    for (const o of layout()) if (o.start + o.len / 2 <= it.start) idx = o.idx + 1;
-    S.clips.splice(idx, 0, c);
-    if (S.clips[0]) S.clips[0].trans = 'none';
-    sel = { type: 'clip', id: c.id };
-    commit(); seekPreview(); toast('Movido a la pista principal');
-  }
-  function moveLayer(dir) {
-    const it = selItem(); if (!it || sel.type !== 'overlay') return;
-    const target = it.track + dir;
-    if (target < 0) { toast('Ya es la capa más baja'); return; }
-    if (trackFree(target, it.start, ovLen(it), it)) it.track = target;
-    else {
-      // intercambiar con las capas que ocupan ese lugar en la otra pista
-      const blocking = S.overlays.filter((o) => o !== it && o.track === target && o.start < it.start + ovLen(it) && it.start < o.start + ovLen(o));
-      const from = it.track;
-      blocking.forEach((o) => { o.track = from; });
-      it.track = target;
-      blocking.forEach((o) => { if (!trackFree(o.track, o.start, ovLen(o), o)) o.track = freeTrack(o.start, ovLen(o), 0, o); });
-    }
-    normTracks(); commit(); toast(dir > 0 ? 'Capa subida' : 'Capa bajada');
   }
   function addText(sticker) {
     const total = totalDur();
@@ -1607,16 +1566,38 @@
       $('#tf-reset').onclick = () => { Object.assign(c, { zoom: 1, rot: 0, flip: false, px: 0, py: 0 }); setSlider('zo', 1, f); dirty = true; };
     });
   }
-  function sheetOpacity(c) {
-    const f = (v) => v + '%', g = (v) => v.toFixed(1) + 's';
-    openSheet('Opacidad y fundidos',
-      ui.slider('op', 'Opacidad', 0, 100, 1, Math.round((c.opacity == null ? 1 : c.opacity) * 100), f) +
-      ui.slider('ofi', 'Aparecer', 0, 3, 0.1, c.fadeIn || 0, g) + ui.slider('ofo', 'Desaparecer', 0, 3, 0.1, c.fadeOut || 0, g) +
-      `<p class="hint">La capa se dibuja encima del video principal. Arrástrala en la vista previa para moverla y pellizca para cambiar su tamaño.</p>`, () => {
-      bindSlider('op', (v) => { c.opacity = v / 100; }, f);
-      bindSlider('ofi', (v) => { c.fadeIn = v; }, g);
-      bindSlider('ofo', (v) => { c.fadeOut = v; }, g);
-    });
+  function openEffects() {
+    let it = selItem();
+    if (!it) {
+      const a = clipAt(t);
+      if (a) { select('clip', a.clip.id); it = a.clip; } else { toast('Agrega un video, foto o audio para usar efectos'); return; }
+    }
+    if (sel.type === 'text') { toast('Los efectos son para videos, fotos y audio'); return; }
+    sheetEffects(it);
+  }
+  let fxPreviewTm = 0;
+  function previewItem(it) {
+    let st = it.start;
+    if (sel && sel.type === 'clip') { const o = layout().find((x) => x.clip.id === it.id); st = o ? o.start : 0; }
+    setTime(st + 0.01); play();
+    clearTimeout(fxPreviewTm); fxPreviewTm = setTimeout(() => { if (playing && !exporting) pause(); }, 2200);
+  }
+  function sheetEffects(it) {
+    const isAudio = sel.type === 'audio';
+    const list = isAudio ? AFX : VFX, cur = (isAudio ? it.afx : it.fx) || 'none', f = (v) => v + '%';
+    const grid = list.map((x) => `<button class="fxbtn${x.id === cur ? ' on' : ''}" data-v="${x.id}"><span class="fxi">${x.ic}</span>${x.name}</button>`).join('');
+    openSheet(isAudio ? 'Efectos de audio' : (it.kind === 'image' ? 'Efectos de foto' : 'Efectos de video'),
+      `<div class="fxgrid" data-name="fx">${grid}</div>` +
+      (isAudio ? `<p class="hint">Se aplica a esta pista de audio. Toca un efecto para escucharlo.</p>`
+        : ui.slider('fxa', 'Intensidad', 0, 100, 1, it.fxAmt == null ? 60 : it.fxAmt, f) +
+          `<div class="btn-row"><button class="btn" id="fx-all">Aplicar a todos los clips</button></div>`),
+      () => {
+        bindChips('fx', (v) => { if (isAudio) it.afx = v; else it.fx = v; scheduleTimeline(); if (v !== 'none') previewItem(it); }, '.fxbtn');
+        if (!isAudio) {
+          bindSlider('fxa', (v) => { it.fxAmt = v; }, f);
+          $('#fx-all').onclick = () => { S.clips.forEach((c) => { c.fx = it.fx; c.fxAmt = it.fxAmt == null ? 60 : it.fxAmt; }); scheduleTimeline(); toast('Efecto aplicado a todos los clips'); };
+        }
+      });
   }
   function sheetTransition(c) {
     openSheet('Transición', ui.chips('tr', TRANSITIONS, c.trans) +
@@ -1815,7 +1796,6 @@
       if (m.el && m.el.remove) { try { m.el.pause && m.el.pause(); } catch (e) { /* */ } m.el.remove(); }
     }
     media.clear();
-    for (const id of [...ovEls.keys()]) dropOv(id);
     try { await DB.clear(); } catch (e) { /* */ }
     S = newProject(); sel = null; t = 0; draw.hasFrame = false;
     hist = [JSON.stringify(S)]; hi = 0; save(); refresh();
@@ -1831,8 +1811,18 @@
       }
       saved.clips = (saved.clips || []).filter((c) => media.has(c.mediaId));
       saved.audios = (saved.audios || []).filter((a) => media.has(a.mediaId));
-      saved.overlays = (saved.overlays || []).filter((c) => media.has(c.mediaId));
+      // Proyectos anteriores con capas superpuestas: pasarlas a la pista principal.
+      const ovs = (saved.overlays || []).filter((c) => media.has(c.mediaId)).sort((a, b) => a.start - b.start);
+      delete saved.overlays;
       S = Object.assign(newProject(), saved);
+      for (const ov of ovs) {
+        let idx = 0;
+        for (const o of layout()) if (o.start + o.len / 2 <= ov.start) idx = o.idx + 1;
+        const c = { ...ov, trans: 'none', zoom: 1, px: 0, py: 0 };
+        ['track', 'start', 'opacity', 'fadeIn', 'fadeOut'].forEach((k) => delete c[k]);
+        S.clips.splice(idx, 0, c);
+      }
+      if (S.clips[0]) S.clips[0].trans = 'none';
       busy(null);
       try { const keys = await DB.keys(); for (const k of keys) if (!ids.has(k)) DB.del(k); } catch (e) { /* */ }
     }
@@ -1855,14 +1845,14 @@
   $('#btn-undo').addEventListener('click', () => histMove(-1));
   $('#btn-redo').addEventListener('click', () => histMove(1));
   $('#btn-export').addEventListener('click', () => { pause(); sheetExport(); });
-  $('#btn-start').addEventListener('click', () => { importDest = 'main'; fileMedia.click(); });
+  $('#btn-start').addEventListener('click', () => fileMedia.click());
   $('#btn-new').addEventListener('click', () => {
-    const empty = !S.clips.length && !S.overlays.length && !S.texts.length && !S.audios.length;
+    const empty = !S.clips.length && !S.texts.length && !S.audios.length;
     if (empty) { resetProject(); return; }
     confirmDlg('¿Empezar un proyecto nuevo?', 'Se borrará el proyecto actual y no se podrá recuperar.', 'Borrar y empezar', true)
       .then((ok) => { if (ok) resetProject(); });
   });
-  fileMedia.addEventListener('change', () => { const f = [...fileMedia.files]; fileMedia.value = ''; importFiles(f, importDest); importDest = 'main'; });
+  fileMedia.addEventListener('change', () => { const f = [...fileMedia.files]; fileMedia.value = ''; importFiles(f, 'main'); });
   fileAudio.addEventListener('change', () => { const f = [...fileAudio.files]; fileAudio.value = ''; importFiles(f, 'audio'); });
 
   document.addEventListener('keydown', (e) => {

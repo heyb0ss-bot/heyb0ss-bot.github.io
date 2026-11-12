@@ -87,7 +87,6 @@ svg { display: block; }
 /* Filas de pistas con etiqueta fija a la izquierda */
 .row { position: relative; margin-top: 6px; }
 .row.main { height: 56px; margin-top: 16px; }
-.ghost-row { height: 26px; }
 .row-label {
   position: sticky; left: 0; z-index: 9; width: 34px; height: 100%; display: flex; align-items: center; justify-content: center; gap: 1px;
   color: var(--muted); background: linear-gradient(90deg, var(--panel) 60%, transparent); pointer-events: none;
@@ -99,7 +98,6 @@ svg { display: block; }
   position: absolute; top: 0; height: 56px; border-radius: 6px; overflow: hidden;
   background: var(--clip); display: flex; touch-action: pan-x pan-y;
 }
-.clip.ov { top: 2px; height: 42px; background: #2d2346; box-shadow: inset 0 0 0 1px #a259ff99; }
 .clip .tile { flex: none; width: 44px; height: 100%; background-size: cover; background-position: center; border-right: 1px solid #0003; }
 .clip .meta { position: absolute; left: 6px; bottom: 4px; font-size: 10px; background: #000a; padding: 1px 5px; border-radius: 4px; pointer-events: none; z-index: 4; }
 .clip .badge { position: absolute; right: 6px; top: 4px; font-size: 10px; background: #000a; padding: 1px 5px; border-radius: 4px; pointer-events: none; z-index: 4; }
@@ -242,14 +240,6 @@ textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
   .zoom-hint::after { content: " · Ctrl+rueda"; }
 }
 
-/* Pulsación larga: barra de progreso de 2 s sobre el elemento */
-.pressing::before {
-  content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 100%; z-index: 7; pointer-events: none;
-  background: rgba(255, 61, 127, .35); transform-origin: left center; transform: scaleX(0);
-  animation: press 2s linear forwards;
-}
-@keyframes press { to { transform: scaleX(1); } }
-
 /* Información del elemento seleccionado */
 .sel-info { flex: none; display: flex; flex-direction: column; gap: 1px; padding: 6px 14px 0; font-size: 12px; }
 .sel-info b { font-weight: 700; }
@@ -280,3 +270,27 @@ textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
 .toast { display: flex; align-items: center; gap: 12px; }
 .toast-act { background: none; border: 0; color: var(--accent); font-weight: 700; padding: 4px 2px; pointer-events: auto; }
 .toast { border-radius: 14px; max-width: min(92vw, 420px); font-size: 13px; line-height: 1.35; padding: 10px 14px; }
+
+/* Elemento levantado para moverlo: se sacude y flota */
+.lifted {
+  z-index: 20 !important; opacity: .96; box-shadow: 0 12px 26px #000d, 0 0 0 2px #fff;
+  animation: wiggle .42s ease-in-out both; transform-origin: center;
+}
+@keyframes wiggle {
+  0% { transform: translateY(0) rotate(0); }
+  20% { transform: translateY(-6px) rotate(-2.2deg); }
+  40% { transform: translateY(-6px) rotate(2.2deg); }
+  60% { transform: translateY(-6px) rotate(-1.4deg); }
+  80% { transform: translateY(-6px) rotate(1.2deg); }
+  100% { transform: translateY(-6px) rotate(0); }
+}
+.slot { position: absolute; top: 0; height: 56px; border: 2px dashed #ffffff66; border-radius: 6px; background: #ffffff0d; }
+
+/* Efectos */
+.fxgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); gap: 8px; padding: 6px 0; }
+.fxbtn {
+  background: var(--panel2); border: 1px solid var(--line); border-radius: 12px; color: var(--ink);
+  padding: 10px 4px 8px; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 11px;
+}
+.fxbtn .fxi { font-size: 24px; line-height: 1.1; }
+.fxbtn.on { border-color: var(--accent); color: var(--accent); background: #22d3ee1a; }
